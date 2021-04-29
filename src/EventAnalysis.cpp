@@ -14,6 +14,7 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 #include "TreeManager.h"
 
 #include <TVector3.h>
+#include <TLorentzVector.h>
 #include <TCanvas.h>
 #include <TLegend.h>
 #include <TH1D.h>
@@ -28,8 +29,149 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 // Function prototypes
 TVector3 GetMPPC2DPos(int);
 TVector3 GetMatchCubePos(int,int);
+std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double>,double);
+std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVector>);
 bool CheckIndexMatch(int,int,int,int);
 bool EventCosmicCut(std::vector<double>,double);
+
+// Global parameters
+double fCubeSize = 10; // In mm
+
+void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
+
+  std::string fin_name;
+
+  if(file_option==1){
+    fin_name = "../../GluedCubes_NoTeflon.root";
+  }
+  else if(file_option==2){
+    fin_name = "../../GluedCubes_WithTeflon.root";
+  }
+
+  TreeManager filereader(fin_name);
+  Mppc *data = filereader.tmCD();
+
+  int n_event = data->GetInputTree()->GetEntries();
+
+  // Create some variables
+  int n_pass = 0;
+  bool pass_tag;
+  std::vector<double> ADC_temp;
+  std::vector<TLorentzVector> cube_array;
+  double tot_ly;
+  double trk_len;
+  double trk_ang;
+  TGraph2D *trk_graph;
+
+  // Create some histograms
+  // Total light yield vs. track direction
+  TH2D *totly_ang = new TH2D("totly_ang","totly_ang",10,0,45,60,0,20000);
+  totly_ang->GetXaxis()->SetTitle("Angle between track and Z axis / degree");
+  totly_ang->GetYaxis()->SetTitle("Track light yield / ADC");
+  totly_ang->GetXaxis()->SetLabelSize(0.04);
+  totly_ang->GetXaxis()->SetTitleSize(0.04);
+  totly_ang->GetYaxis()->SetLabelSize(0.04);
+  totly_ang->GetYaxis()->SetTitleSize(0.04);
+  totly_ang->GetYaxis()->SetTitleOffset(1.4);
+  totly_ang->GetZaxis()->SetLabelSize(0.04);
+  totly_ang->SetTitle("");
+
+  // Distribution of local light yield per unit length 
+  TH1D *locally = new TH1D("locally","locally",40,0,1000);
+  locally->GetXaxis()->SetTitle("Average light yield ADC / mm");
+  locally->GetYaxis()->SetTitle("Number of events / bin");
+  locally->GetXaxis()->SetLabelSize(0.04);
+  locally->GetXaxis()->SetTitleSize(0.04);
+  locally->GetYaxis()->SetLabelSize(0.04);
+  locally->GetYaxis()->SetTitleSize(0.04);
+  locally->GetYaxis()->SetTitleOffset(1.4);
+  locally->SetTitle("");
+
+  // Loop over all events
+  for(int n = 0; n < n_event; n++){
+
+    data->GetMppc(n);
+
+    // Check whether the event passed the cut
+    ADC_temp.clear();
+    for(int i = 0; i < 18; i++) ADC_temp.push_back(data->ADC(i));
+    pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
+
+    if(pass_tag==false) continue;
+    n_pass += 1;
+
+    // Get the positions (+ light yields) of matched cubes
+    // Each layer only consider the highest ADC in each plane, and use the center position of cube
+    cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
+
+    // Get total light yield
+    tot_ly = 0;
+    for(int i = 0; i < cube_array.size(); i++) tot_ly += cube_array[i].T();
+
+    // Get the total length of the track and angle with respect to positive Z axis
+    std::tie(trk_len,trk_ang,trk_graph) = GetTrackLengthAngle(cube_array);
+
+    // Fill the histograms
+    totly_ang->Fill(trk_ang,tot_ly);
+    locally->Fill(tot_ly/trk_len);
+
+  }
+
+  std::cout << "Total number of events: " << n_event << endl;
+  std::cout << "Number of passed events: " << n_pass << endl;
+
+  // Draw the plots
+  gStyle->SetOptStat(0);
+
+  TCanvas *c1 = new TCanvas("totly_ang","totly_ang",800,600);
+  c1->SetLeftMargin(0.15);
+  c1->SetRightMargin(0.15);
+  c1->cd();
+  totly_ang->SetContour(99);
+  totly_ang->Draw("colz");
+  c1->Update();
+
+  TCanvas *c2 = new TCanvas("locally","locally",700,600);
+  c2->SetLeftMargin(0.15);
+  c2->cd();
+  locally->SetLineWidth(2);
+  locally->SetLineColor(kBlue);
+  locally->Draw("hist");
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c2->Update();
+
+  if(file_option==1){
+    c1->SaveAs("../../plots/totly_ang_noteflon.png");
+    c2->SaveAs("../../plots/locally_noteflon.png");
+  }
+  else if(file_option==2){
+    c1->SaveAs("../../plots/totly_ang_withteflon.png");
+    c2->SaveAs("../../plots/locally_withteflon.png");
+  }
+
+  // Save the plots into output file
+  TString fout_name;
+
+  if(file_option==1){
+    fout_name = "../../Event3DAnalysis_NoTeflon.root";
+  }
+  else if(file_option==2){
+    fout_name = "../../Event3DAnalysis_WithTeflon.root";
+  }
+
+  TFile *fout = new TFile(fout_name.Data(),"recreate");
+  fout->cd();
+
+  c1->Write();
+  c2->Write();
+
+  totly_ang->Write();
+  locally->Write();
+
+  fout->Close();
+
+}
 
 // Draw event 3D display (after some cuts)
 // Notation: file_option = input data file want to be used
@@ -40,28 +182,10 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_14April2021.root";
+    fin_name = "../../GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_15April2021.root";
-  }
-  else if(file_option==3){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_16April2021.root";
-  }
-  else if(file_option==4){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_19April2021.root";
-  }
-  else if(file_option==5){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_19April2021_2nd.root";
-  }
-  else if(file_option==6){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_20April2021.root";
-  }
-  else if(file_option==7){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_20April2021_2nd.root";
-  }
-  else if(file_option==8){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_21April2021.root";
+    fin_name = "../../GluedCubes_WithTeflon.root";
   }
 
   TreeManager filereader(fin_name);
@@ -79,6 +203,14 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   Event_show->GetXaxis()->SetTitle("X axis cube");
   Event_show->GetYaxis()->SetTitle("Y axis cube");
   Event_show->GetZaxis()->SetTitle("Z axis cube");
+  Event_show->SetTitle("");
+
+  double size = 3 * fCubeSize;
+  TH3D *bkg_temp = new TH3D("bkg_temp","bkg_temp",100,0,size,100,0,size,100,0,size);
+  bkg_temp->GetXaxis()->SetTitle("X axis cube");
+  bkg_temp->GetYaxis()->SetTitle("Y axis cube");
+  bkg_temp->GetZaxis()->SetTitle("Z axis cube");
+  bkg_temp->SetTitle("");
 
   // Create 2D plot to show MPPC on each plane
   TH2D *MPPC2D_xz = new TH2D("MPPC2D_xz","MPPC2D_xz",3,0,3,3,0,3);
@@ -106,6 +238,10 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   double ADC_xz, ADC_yz;
   TVector3 cube_pos;
   std::vector<double> ADC_temp;
+  std::vector<TLorentzVector> cube_array;
+  TGraph2D *trk_graph;
+  double trk_len; 
+  double trk_ang;
 
   // Read the events to find one matches the cut
   while(out_tag==false){
@@ -122,121 +258,16 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
 
     if(pass_tag==true){
 
-      // In order to draw 3D event, at each layer only consider the highest ADC on each plane
+      // Get the cube array
+      cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
 
-      // Top layer (XZ plane)
-      ADC_max = 0;
-      if(data->ADC(13)>=ADC_max){
-        ADC_max = data->ADC(13);
-        index_xz = 14;
-        ADC_xz = data->ADC(13);
-      }
-      if(data->ADC(3)>=ADC_max){
-        ADC_max = data->ADC(3);
-        index_xz = 4;
-        ADC_xz = data->ADC(3);
-      }
-      if(data->ADC(12)>=ADC_max){
-        ADC_max = data->ADC(12);
-        index_xz = 13;
-        ADC_xz = data->ADC(12);
-      }
-      // Top layer (YZ plane)
-      ADC_max = 0;
-      if(data->ADC(8)>=ADC_max){ 
-        ADC_max = data->ADC(8);
-        index_yz = 9;
-        ADC_yz = data->ADC(8);
-      }
-      if(data->ADC(17)>=ADC_max){ 
-        ADC_max = data->ADC(17);
-        index_yz = 18;
-        ADC_yz = data->ADC(17);
-      }
-      if(data->ADC(7)>=ADC_max){ 
-        ADC_max = data->ADC(7);
-        index_yz = 8;
-        ADC_yz = data->ADC(7);
-      }
-      
-      cube_pos = GetMatchCubePos(index_xz,index_yz);
-      Event_show->Fill(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz); 
-
-      // Middle layer (XZ plane)
-      ADC_max = 0;
-      if(data->ADC(2)>=ADC_max){
-        ADC_max = data->ADC(2);
-        index_xz = 3;
-        ADC_xz = data->ADC(2);
-      }
-      if(data->ADC(11)>=ADC_max){
-        ADC_max = data->ADC(11);
-        index_xz = 12;
-        ADC_xz = data->ADC(11);
-      }
-      if(data->ADC(1)>=ADC_max){
-        ADC_max = data->ADC(1);
-        index_xz = 2;
-        ADC_xz = data->ADC(1);
-      }
-      // Middle layer (YZ plane)
-      ADC_max = 0;
-      if(data->ADC(16)>=ADC_max){
-        ADC_max = data->ADC(16);
-        index_yz = 17;
-        ADC_yz = data->ADC(16);
-      }
-      if(data->ADC(6)>=ADC_max){
-        ADC_max = data->ADC(6);
-        index_yz = 7;
-        ADC_yz = data->ADC(6);
-      }
-      if(data->ADC(15)>=ADC_max){
-        ADC_max = data->ADC(15);
-        index_yz = 16;
-        ADC_yz = data->ADC(15);
+      // 3D plot show the cubes
+      for(int i = 0; i < cube_array.size(); i++){
+        Event_show->Fill(cube_array[i].X(),cube_array[i].Y(),cube_array[i].Z(),cube_array[i].T());
       }
 
-      cube_pos = GetMatchCubePos(index_xz,index_yz);
-      Event_show->Fill(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
-
-      // Bottom layer (XZ plane)
-      ADC_max = 0;
-      if(data->ADC(10)>=ADC_max){
-        ADC_max = data->ADC(10);
-        index_xz = 11;
-        ADC_xz = data->ADC(10);
-      }
-      if(data->ADC(0)>=ADC_max){
-        ADC_max = data->ADC(0);
-        index_xz = 1;
-        ADC_xz = data->ADC(0);
-      }
-      if(data->ADC(9)>=ADC_max){
-        ADC_max = data->ADC(9);
-        index_xz = 10;
-        ADC_xz = data->ADC(9);
-      }
-      // Bottom layer (YZ plane)
-      ADC_max = 0;
-      if(data->ADC(5)>=ADC_max){
-        ADC_max = data->ADC(5);
-        index_yz = 6;
-        ADC_yz = data->ADC(5);
-      }
-      if(data->ADC(14)>=ADC_max){
-        ADC_max = data->ADC(14);
-        index_yz = 15;
-        ADC_yz = data->ADC(14);
-      }
-      if(data->ADC(4)>=ADC_max){
-        ADC_max = data->ADC(4);
-        index_yz = 5;
-        ADC_yz = data->ADC(4);
-      }
-
-      cube_pos = GetMatchCubePos(index_xz,index_yz);
-      Event_show->Fill(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
+      // 3D plot show the track (straight line)
+      std::tie(trk_len,trk_ang,trk_graph) = GetTrackLengthAngle(cube_array);
 
       // Also draw 2D MPPC on each plane
       for(int i = 0; i < 18; i++){
@@ -250,6 +281,16 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
     }
 
   } 
+
+  //trk_graph->GetXaxis()->SetRangeUser(0,3*fCubeSize);
+  //trk_graph->GetYaxis()->SetRangeUser(0,3*fCubeSize);
+  //trk_graph->GetZaxis()->SetRangeUser(0,3*fCubeSize);
+  //trk_graph->GetXaxis()->SetTitle("X axis cube");
+  //trk_graph->GetYaxis()->SetTitle("Y axis cube");
+  //trk_graph->GetZaxis()->SetTitle("Z axis cube");
+  //trk_graph->SetTitle("");
+  trk_graph->SetLineWidth(2);
+  trk_graph->SetLineColor(kBlue);
 
   // Plot the histograms
   gStyle->SetOptStat(0);
@@ -285,10 +326,29 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   c4->Update();
   c4->cd(3);
   Event_show->Draw("BOX2");
+  c4->cd(4);
+  bkg_temp->Draw();
+  trk_graph->Draw("LINE same");
   c4->Update();
 
+  if(file_option==1){
+    c4->SaveAs("../../plots/combine_noteflon.png");
+  }
+  else if(file_option==2){
+    c4->SaveAs("../../plots/combine_withteflon.png");
+  }
+
   // Save the plot into output file
-  TFile *fout = new TFile("./EventDisplay_AfterADCCut.root","recreate");
+  TString fout_name;
+
+  if(file_option==1){
+    fout_name = "../../EventDisplay_NoTeflon.root";
+  }
+  else if(file_option==2){
+    fout_name = "../../EventDisplay_WithTeflon.root";
+  }
+
+  TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
 
   c1->Write();
@@ -299,6 +359,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   Event_show->Write();
   MPPC2D_xz->Write();
   MPPC2D_yz->Write();
+  trk_graph->Write();
 
   fout->Close();
 
@@ -310,28 +371,10 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_14April2021.root";
+    fin_name = "../../GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_15April2021.root";
-  }
-  else if(file_option==3){
-    fin_name = "../SpecialRun_GluedCubesNoTeflon_16April2021.root";
-  }
-  else if(file_option==4){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_19April2021.root";
-  }
-  else if(file_option==5){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_19April2021_2nd.root";
-  }
-  else if(file_option==6){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_20April2021.root";
-  }
-  else if(file_option==7){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_20April2021_2nd.root";
-  }
-  else if(file_option==8){
-    fin_name = "../SpecialRun_GluedCubesWithTeflon_21April2021.root";
+    fin_name = "../../GluedCubes_WithTeflon.root";
   }
 
   TreeManager filereader(fin_name);
@@ -442,6 +485,214 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   fout->Close();
 
 } 
+
+// ------------------------------------------------
+// Below are auxiliary functions
+// ------------------------------------------------
+
+// Get the 3D matched cubes (one per layer)
+// For each cube the 3D position and light yield will be returned
+std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, double ADC_cut){
+
+  double ADC_max;
+  double ADC_xz, ADC_yz;
+  int index_xz, index_yz;
+  TVector3 cube_pos;
+  TLorentzVector cube_temp;
+  std::vector<TLorentzVector> cube_array;
+
+  // In order to get 3D event, at each layer only consider the highest ADC on each plane
+  
+  // Top layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[13]>=ADC_max){
+    ADC_max = ADC_temp[13];
+    index_xz = 14;
+    ADC_xz = ADC_temp[13];
+  }
+  if(ADC_temp[3]>=ADC_max){
+    ADC_max = ADC_temp[3];
+    index_xz = 4;
+    ADC_xz = ADC_temp[3];
+  }
+  if(ADC_temp[12]>=ADC_max){
+    ADC_max = ADC_temp[12];
+    index_xz = 13;
+    ADC_xz = ADC_temp[12];
+  }
+  // Top layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[8]>=ADC_max){
+    ADC_max = ADC_temp[8];
+    index_yz = 9;
+    ADC_yz = ADC_temp[8];
+  }
+  if(ADC_temp[17]>=ADC_max){
+    ADC_max = ADC_temp[17];
+    index_yz = 18;
+    ADC_yz = ADC_temp[17];
+  }
+  if(ADC_temp[7]>=ADC_max){
+    ADC_max = ADC_temp[7];
+    index_yz = 8;
+    ADC_yz = ADC_temp[7];
+  }
+ 
+  cube_pos = GetMatchCubePos(index_xz,index_yz);
+  cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
+  cube_array.push_back(cube_temp);
+
+  // Middle layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[2]>=ADC_max){
+    ADC_max = ADC_temp[2];
+    index_xz = 3;
+    ADC_xz = ADC_temp[2];
+  }
+  if(ADC_temp[11]>=ADC_max){
+    ADC_max = ADC_temp[11];
+    index_xz = 12;
+    ADC_xz = ADC_temp[11];
+  }
+  if(ADC_temp[1]>=ADC_max){
+    ADC_max = ADC_temp[1];
+    index_xz = 2;
+    ADC_xz = ADC_temp[1];
+  }
+  // Middle layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[16]>=ADC_max){
+    ADC_max = ADC_temp[16];
+    index_yz = 17;
+    ADC_yz = ADC_temp[16];
+  }
+  if(ADC_temp[6]>=ADC_max){
+    ADC_max = ADC_temp[6];
+    index_yz = 7;
+    ADC_yz = ADC_temp[6];
+  }
+  if(ADC_temp[15]>=ADC_max){
+    ADC_max = ADC_temp[15];
+    index_yz = 16;
+    ADC_yz = ADC_temp[15];
+  }
+
+  cube_pos = GetMatchCubePos(index_xz,index_yz);
+  cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
+  cube_array.push_back(cube_temp);
+
+  // Bottom layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[10]>=ADC_max){
+    ADC_max = ADC_temp[10];
+    index_xz = 11;
+    ADC_xz = ADC_temp[10];
+  }
+  if(ADC_temp[0]>=ADC_max){
+    ADC_max = ADC_temp[0];
+    index_xz = 1;
+    ADC_xz = ADC_temp[0];
+  }
+  if(ADC_temp[9]>=ADC_max){
+    ADC_max = ADC_temp[9];
+    index_xz = 10;
+    ADC_xz = ADC_temp[9];
+  }
+
+  // Bottom layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[5]>=ADC_max){
+    ADC_max = ADC_temp[5];
+    index_yz = 6;
+    ADC_yz = ADC_temp[5];
+  }
+  if(ADC_temp[14]>=ADC_max){
+    ADC_max = ADC_temp[14];
+    index_yz = 15;
+    ADC_yz = ADC_temp[14];
+  }
+  if(ADC_temp[4]>=ADC_max){
+    ADC_max = ADC_temp[4];
+    index_yz = 5;
+    ADC_yz = ADC_temp[4];
+  }
+
+  cube_pos = GetMatchCubePos(index_xz,index_yz);
+  cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
+  cube_array.push_back(cube_temp);
+
+  return cube_array;
+
+}
+
+// Estimate the track length in 3*3*3 cube matrix and the angle with respect to positive Z axis
+std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVector> cube_array){
+
+  // Create some parameters
+  TGraph *fit_xz = new TGraph();
+  TGraph *fit_yz = new TGraph();
+  TF1 *fit_func = new TF1("fit_func","[0]*x+[1]");
+  TF1 *fit_back;
+  TGraph2D *graph = new TGraph2D();
+  double x_temp, y_temp, z_temp;
+  double ax, bx;
+  double ay, by;
+  double dx, dy;
+  double d;
+  double ang;
+  double bias = fCubeSize / 2;
+  double size = 3 * fCubeSize;
+
+  // Fill the graph
+  for(int i = 0; i < cube_array.size(); i++){
+ 
+    // XZ plane
+    x_temp = cube_array[i].Z() * fCubeSize + bias;
+    y_temp = cube_array[i].X() * fCubeSize + bias;
+    fit_xz->SetPoint(i,x_temp,y_temp);
+
+    // YZ plane
+    x_temp = cube_array[i].Z() * fCubeSize + bias;
+    y_temp = cube_array[i].Y() * fCubeSize + bias;
+    fit_yz->SetPoint(i,x_temp,y_temp);
+
+    //std::cout << cube_array[i].X() << " " << cube_array[i].Y() << " " << cube_array[i].Z() << endl;
+
+  }
+
+  // Fit the graph with straight line
+  fit_xz->Fit("fit_func","","",0,size);
+  fit_back = fit_xz->GetFunction("fit_func");
+  ax = fit_back->GetParameter(0);
+  bx = fit_back->GetParameter(1);
+  dx = size * ax;
+
+  fit_yz->Fit("fit_func","","",0,size);
+  fit_back = fit_yz->GetFunction("fit_func");
+  ay = fit_back->GetParameter(0);
+  by = fit_back->GetParameter(1);
+  dy = size * ay;
+ 
+  // Compute the track total length
+  d = sqrt(pow(dx,2) + pow(dy,2) + pow(size,2));
+
+  // Compute the track angle with respect to positive Z axis
+  ang = TMath::ACos(size/d) * 180 / TMath::Pi();
+
+  // Draw the track (straight line)
+  const int npoint = 100;
+  double step = size / npoint;
+
+  for(int i = 0; i < npoint; i++){
+    z_temp = step * i;
+    x_temp = ax * z_temp + bx;
+    y_temp = ay * z_temp + by;
+    graph->SetPoint(i,x_temp,y_temp,z_temp);
+  }
+
+  return std::make_tuple(d,ang,graph);
+
+}
 
 // Check whether the event passes the cosmic cut
 bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
