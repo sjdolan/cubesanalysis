@@ -42,10 +42,10 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../../GluedCubes_NoTeflon.root";
+    fin_name = "../../inputs/GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fin_name = "../../GluedCubes_WithTeflon.root";
+    fin_name = "../../inputs/GluedCubes_WithTeflon.root";
   }
 
   TreeManager filereader(fin_name);
@@ -142,22 +142,22 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   c2->Update();
 
   if(file_option==1){
-    c1->SaveAs("../../plots/totly_ang_noteflon.png");
-    c2->SaveAs("../../plots/locally_noteflon.png");
+    c1->SaveAs("../../../plots/scintillator_cube/totly_ang_gluedcubes_noteflon.png");
+    c2->SaveAs("../../../plots/scintillator_cube/plots/locally_gluedcubes_noteflon.png");
   }
   else if(file_option==2){
-    c1->SaveAs("../../plots/totly_ang_withteflon.png");
-    c2->SaveAs("../../plots/locally_withteflon.png");
+    c1->SaveAs("../../../plots/scintillator_cube/totly_ang_gluedcubes_withteflon.png");
+    c2->SaveAs("../../../plots/scintillator_cube/locally_gluedcubes_withteflon.png");
   }
 
   // Save the plots into output file
   TString fout_name;
 
   if(file_option==1){
-    fout_name = "../../Event3DAnalysis_NoTeflon.root";
+    fout_name = "../../results/Event3DAnalysis_GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fout_name = "../../Event3DAnalysis_WithTeflon.root";
+    fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -182,10 +182,10 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../../GluedCubes_NoTeflon.root";
+    fin_name = "../../inputs/GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fin_name = "../../GluedCubes_WithTeflon.root";
+    fin_name = "../../inputs/GluedCubes_WithTeflon.root";
   }
 
   TreeManager filereader(fin_name);
@@ -332,20 +332,20 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   c4->Update();
 
   if(file_option==1){
-    c4->SaveAs("../../plots/combine_noteflon.png");
+    c4->SaveAs("../../../plots/scintillator_cube/combine_gluedcubes_noteflon.png");
   }
   else if(file_option==2){
-    c4->SaveAs("../../plots/combine_withteflon.png");
+    c4->SaveAs("../../../plots/scintillator_cube/combine_gluedcubes_withteflon.png");
   }
 
   // Save the plot into output file
   TString fout_name;
 
   if(file_option==1){
-    fout_name = "../../EventDisplay_NoTeflon.root";
+    fout_name = "../../results/EventDisplay_GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fout_name = "../../EventDisplay_WithTeflon.root";
+    fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -371,10 +371,10 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../../GluedCubes_NoTeflon.root";
+    fin_name = "../../inputs/GluedCubes_NoTeflon.root";
   }
   else if(file_option==2){
-    fin_name = "../../GluedCubes_WithTeflon.root";
+    fin_name = "../../inputs/GluedCubes_WithTeflon.root";
   }
 
   TreeManager filereader(fin_name);
