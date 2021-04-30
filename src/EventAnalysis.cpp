@@ -77,7 +77,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   totly_ang->SetTitle("");
 
   // Distribution of local light yield per unit length 
-  TH1D *locally = new TH1D("locally","locally",40,0,1000);
+  TH1D *locally = new TH1D("locally","locally",60,0,1000);
   locally->GetXaxis()->SetTitle("Average light yield ADC / mm");
   locally->GetYaxis()->SetTitle("Number of events / bin");
   locally->GetXaxis()->SetLabelSize(0.04);
@@ -120,6 +120,24 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   std::cout << "Total number of events: " << n_event << endl;
   std::cout << "Number of passed events: " << n_pass << endl;
 
+  // Fit the local light yield distribution with Laudau function
+  double range_low = locally->GetMean() - 2 * locally->GetRMS();
+  double range_upp = locally->GetMean() + 4 * locally->GetRMS();
+  locally->Fit("landau","","",range_low,range_upp);
+  TF1 *fit_func = locally->GetFunction("landau");
+  double mean = fit_func->GetParameter(1);
+  double rms = fit_func->GetParameter(2);
+
+  std::cout << "Local light yield mean: " << mean << ", RMS: " << rms << endl;
+
+  TString name;
+  TText *pl_name = new TText();
+  pl_name->SetTextSize(0.04);
+  TText *pl_mean = new TText();
+  pl_mean->SetTextSize(0.03);
+  TText *pl_rms = new TText();
+  pl_rms->SetTextSize(0.03);
+ 
   // Draw the plots
   gStyle->SetOptStat(0);
 
@@ -137,6 +155,14 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   locally->SetLineWidth(2);
   locally->SetLineColor(kBlue);
   locally->Draw("hist");
+
+  name.Form("Landau fit:");
+  pl_name->DrawTextNDC(0.55,0.68,name);
+  name.Form("MPV = %f ADC / mm",mean);
+  pl_mean->DrawTextNDC(0.55,0.61,name);
+  name.Form("Sigma = %f ADC / mm",rms);
+  pl_rms->DrawTextNDC(0.55,0.54,name);
+
   gPad->SetGridx();
   gPad->SetGridy();
   c2->Update();
@@ -328,7 +354,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   Event_show->Draw("BOX2");
   c4->cd(4);
   bkg_temp->Draw();
-  trk_graph->Draw("LINE same");
+  trk_graph->Draw("LINE SAME");
   c4->Update();
 
   if(file_option==1){
