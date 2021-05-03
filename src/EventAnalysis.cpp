@@ -47,6 +47,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
   }
+  else if(file_option==3){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+  }
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -175,6 +178,10 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
     c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/totly_ang.png");
     c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/locally.png");
   }
+  else if(file_option==3){
+    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/totly_ang.png");
+    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/locally.png");
+  }
 
   // Save the plots into output file
   TString fout_name;
@@ -184,6 +191,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   }
   else if(file_option==2){
     fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon_GluedFiber.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -212,6 +222,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   }
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
   }
 
   TreeManager filereader(fin_name);
@@ -363,6 +376,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   else if(file_option==2){
     c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/combine.png");
   }
+  else if(file_option==3){
+    c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/combine.png");
+  }
 
   // Save the plot into output file
   TString fout_name;
@@ -372,6 +388,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   }
   else if(file_option==2){
     fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon_GluedFiber.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -397,10 +416,13 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   std::string fin_name;
 
   if(file_option==1){
-    fin_name = "../../inputs/GluedCubes_NoTeflon.root";
+    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
   }
   else if(file_option==2){
-    fin_name = "../../inputs/GluedCubes_WithTeflon.root";
+    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
   }
 
   TreeManager filereader(fin_name);
@@ -408,13 +430,17 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
 
   int n_event = data->GetInputTree()->GetEntries();
 
+  // Create some variables
+  std::vector<double> ADC_temp;
+  bool passtag;
+
   // Light yield distributions for each channel 0 - 17
   TString name;
   TH1D *MPPC_ly[18];
   
   for(int i = 0; i < 18; i++){
     name.Form("MPPC_ly_chan%i",i+1);
-    MPPC_ly[i] = new TH1D(name,name,100,0,4000);
+    MPPC_ly[i] = new TH1D(name,name,80,500,4500);
     MPPC_ly[i]->GetXaxis()->SetTitle("ADC");
     MPPC_ly[i]->GetYaxis()->SetTitle("Number of events / bin");
     MPPC_ly[i]->SetTitle(name);
@@ -426,10 +452,14 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   for(int n = 0; n < n_event; n++){
 
     data->GetMppc(n);
+ 
+    ADC_temp.clear();
+    for(int i = 0; i < 18; i++) ADC_temp.push_back(data->ADC(i));
+    passtag = EventCosmicCut(ADC_temp,ADC_cut);
 
-    for(int i = 0; i < 18; i++){
-      if((data->ADC(i))>ADC_cut) MPPC_ly[i]->Fill(data->ADC(i)); 
-    }
+    if(passtag==false) continue;  
+
+    for(int i = 0; i < 18; i++) MPPC_ly[i]->Fill(data->ADC(i)); 
 
   }
 
@@ -440,31 +470,31 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   c1->Divide(3,3);
   c1->cd(1);
   MPPC_ly[13]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(2);
   MPPC_ly[4]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(3);
   MPPC_ly[12]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(4);
   MPPC_ly[2]->Draw();
-  gPad->SetLogy(); 
+  //gPad->SetLogy(); 
   c1->cd(5);
   MPPC_ly[11]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(6);
   MPPC_ly[1]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(7);
   MPPC_ly[10]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(8);
   MPPC_ly[0]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->cd(9);
   MPPC_ly[9]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c1->Update();
 
   // MPPC channel face 2 + 4
@@ -472,35 +502,60 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   c2->Divide(3,3);
   c2->cd(1);
   MPPC_ly[8]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(2);
   MPPC_ly[17]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(3);
   MPPC_ly[7]->Draw(); 
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(4);
   MPPC_ly[16]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(5);
   MPPC_ly[6]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(6);
   MPPC_ly[15]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(7);
   MPPC_ly[5]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(8);
   MPPC_ly[14]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->cd(9);
   MPPC_ly[4]->Draw();
-  gPad->SetLogy();
+  //gPad->SetLogy();
   c2->Update();
 
+  if(file_option==1){
+    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/MPPC2D_xz.png");
+    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/MPPC2D_yz.png");
+  }
+  else if(file_option==2){    
+    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/MPPC2D_xz.png");
+    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/MPPC2D_yz.png");
+  }
+  else if(file_option==3){
+    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/MPPC2D_xz.png");
+    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/MPPC2D_yz.png");
+  }
+
   // Save the plots into output file
-  TFile *fout = new TFile("./MPPC_ChannelLightYield.root","recreate");
+  TString fout_name;
+
+  if(file_option==1){
+    fout_name = "../../results/MPPCLightYield_GluedCubes_NoTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==2){
+    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_GluedFiber.root";
+  }
+
+  TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
   
   for(int i = 0; i < 18; i++) MPPC_ly[i]->Write();
