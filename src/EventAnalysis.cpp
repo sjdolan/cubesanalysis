@@ -30,7 +30,7 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 TVector3 GetMPPC2DPos(int);
 TVector3 GetMatchCubePos(int,int);
 std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double>,double);
-std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVector>);
+std::tuple<std::vector<double>,std::vector<double>,TGraph2D*> Get3DTrackFit(std::vector<TLorentzVector>);
 bool CheckIndexMatch(int,int,int,int);
 bool EventCosmicCut(std::vector<double>,double);
 
@@ -63,21 +63,35 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   std::vector<TLorentzVector> cube_array;
   double tot_ly;
   double trk_len;
-  double trk_ang;
+  double trk_ang_pol, trk_ang_azi;
   TGraph2D *trk_graph;
+  std::vector<double> track_info;
+  std::vector<double> chan_path;
 
   // Create some histograms
-  // Total light yield vs. track direction
-  TH2D *totly_ang = new TH2D("totly_ang","totly_ang",10,0,45,60,0,20000);
-  totly_ang->GetXaxis()->SetTitle("Angle between track and Z axis / degree");
-  totly_ang->GetYaxis()->SetTitle("Track light yield / ADC");
-  totly_ang->GetXaxis()->SetLabelSize(0.04);
-  totly_ang->GetXaxis()->SetTitleSize(0.04);
-  totly_ang->GetYaxis()->SetLabelSize(0.04);
-  totly_ang->GetYaxis()->SetTitleSize(0.04);
-  totly_ang->GetYaxis()->SetTitleOffset(1.4);
-  totly_ang->GetZaxis()->SetLabelSize(0.04);
-  totly_ang->SetTitle("");
+  // Total light yield vs. track direction (polar angle)
+  TH2D *totly_ang_polar = new TH2D("totly_ang_polar","totly_ang_polar",10,0,45,60,0,20000);
+  totly_ang_polar->GetXaxis()->SetTitle("Track polar angle #theta / degree");
+  totly_ang_polar->GetYaxis()->SetTitle("Track light yield / ADC");
+  totly_ang_polar->GetXaxis()->SetLabelSize(0.04);
+  totly_ang_polar->GetXaxis()->SetTitleSize(0.04);
+  totly_ang_polar->GetYaxis()->SetLabelSize(0.04);
+  totly_ang_polar->GetYaxis()->SetTitleSize(0.04);
+  totly_ang_polar->GetYaxis()->SetTitleOffset(1.4);
+  totly_ang_polar->GetZaxis()->SetLabelSize(0.04);
+  totly_ang_polar->SetTitle("");
+
+  // (Azimuth angle)
+  TH2D *totly_ang_azi = new TH2D("totly_ang_azi","totly_ang_azi",20,-180,180,60,0,20000);
+  totly_ang_azi->GetXaxis()->SetTitle("Track azimuth angle #phi / degree");
+  totly_ang_azi->GetYaxis()->SetTitle("Track light yield / ADC");
+  totly_ang_azi->GetXaxis()->SetLabelSize(0.04);
+  totly_ang_azi->GetXaxis()->SetTitleSize(0.04);
+  totly_ang_azi->GetYaxis()->SetLabelSize(0.04);
+  totly_ang_azi->GetYaxis()->SetTitleSize(0.04);
+  totly_ang_azi->GetYaxis()->SetTitleOffset(1.4);
+  totly_ang_azi->GetZaxis()->SetLabelSize(0.04);
+  totly_ang_azi->SetTitle("");
 
   // Distribution of local light yield per unit length 
   TH1D *locally = new TH1D("locally","locally",60,0,1000);
@@ -89,6 +103,43 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   locally->GetYaxis()->SetTitleSize(0.04);
   locally->GetYaxis()->SetTitleOffset(1.4);
   locally->SetTitle("");
+
+  // Distribution of angles (polar + azimuth)
+  TH1D *ang_polar = new TH1D("ang_polar","ang_polar",10,0,45);
+  ang_polar->GetXaxis()->SetTitle("Track polar angle #theta / degree");
+  ang_polar->GetYaxis()->SetTitle("Number of events / bin");
+  ang_polar->GetXaxis()->SetLabelSize(0.04);
+  ang_polar->GetXaxis()->SetTitleSize(0.04);
+  ang_polar->GetYaxis()->SetLabelSize(0.04);
+  ang_polar->GetYaxis()->SetTitleSize(0.04);
+  ang_polar->GetYaxis()->SetTitleOffset(1.4);
+  ang_polar->SetTitle("");
+ 
+  TH1D *ang_azi = new TH1D("ang_azi","ang_azi",20,-180,180);
+  ang_azi->GetXaxis()->SetTitle("Track azimuth angle #phi / degree");
+  ang_azi->GetYaxis()->SetTitle("Number of events / bin");
+  ang_azi->GetXaxis()->SetLabelSize(0.04);
+  ang_azi->GetXaxis()->SetTitleSize(0.04);
+  ang_azi->GetYaxis()->SetLabelSize(0.04);
+  ang_azi->GetYaxis()->SetTitleSize(0.04);
+  ang_azi->GetYaxis()->SetTitleOffset(1.4);
+  ang_azi->SetTitle("");
+
+  // Distribution of distance sum (check track fit quality)
+  TH1D *trkfit_quality = new TH1D("trkfit_quality","trkfit_quality",60,0,40);
+  trkfit_quality->SetTitle("");
+  trkfit_quality->GetXaxis()->SetTitle("Distance sum / mm");
+  trkfit_quality->GetYaxis()->SetTitle("Number of events / bin");
+
+  // Distribution of path length seen by each channel
+  TH1D *path_length[18];
+  TString title;
+  for(int i = 0; i < 18; i++){
+    title.Form("channel%d_path",i+1);
+    path_length[i] = new TH1D(title,title,60,0,20);
+    path_length[i]->GetXaxis()->SetTitle("Estimated path length / mm");
+    path_length[i]->GetYaxis()->SetTitle("Number of events / bin");
+  }
 
   // Loop over all events
   for(int n = 0; n < n_event; n++){
@@ -112,11 +163,20 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
     for(int i = 0; i < cube_array.size(); i++) tot_ly += cube_array[i].T();
 
     // Get the total length of the track and angle with respect to positive Z axis
-    std::tie(trk_len,trk_ang,trk_graph) = GetTrackLengthAngle(cube_array);
+    std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+    trk_len = track_info[0];
+    trk_ang_pol = track_info[1];
+    trk_ang_azi = track_info[2];
 
     // Fill the histograms
-    totly_ang->Fill(trk_ang,tot_ly);
+    totly_ang_polar->Fill(trk_ang_pol,tot_ly);
+    totly_ang_azi->Fill(trk_ang_azi,tot_ly);
     locally->Fill(tot_ly/trk_len);
+    ang_polar->Fill(trk_ang_pol);
+    ang_azi->Fill(trk_ang_azi);
+
+    trkfit_quality->Fill(track_info[3]);
+    for(int i = 0; i < 18; i++) path_length[i]->Fill(chan_path[i]);
 
   }
 
@@ -144,17 +204,25 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   // Draw the plots
   gStyle->SetOptStat(0);
 
-  TCanvas *c1 = new TCanvas("totly_ang","totly_ang",800,600);
+  TCanvas *c1 = new TCanvas("totly_ang_polar","totly_ang_polar",800,600);
   c1->SetLeftMargin(0.15);
   c1->SetRightMargin(0.15);
   c1->cd();
-  totly_ang->SetContour(99);
-  totly_ang->Draw("colz");
+  totly_ang_polar->SetContour(99);
+  totly_ang_polar->Draw("colz");
   c1->Update();
 
-  TCanvas *c2 = new TCanvas("locally","locally",700,600);
+  TCanvas *c2 = new TCanvas("totly_ang_azi","totly_ang_azi",800,600);
   c2->SetLeftMargin(0.15);
+  c2->SetRightMargin(0.15);
   c2->cd();
+  totly_ang_azi->SetContour(99);
+  totly_ang_azi->Draw("colz");
+  c2->Update();
+
+  TCanvas *c3 = new TCanvas("locally","locally",700,600);
+  c3->SetLeftMargin(0.15);
+  c3->cd();
   locally->SetLineWidth(2);
   locally->SetLineColor(kBlue);
   locally->Draw("hist");
@@ -168,20 +236,50 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 
   gPad->SetGridx();
   gPad->SetGridy();
-  c2->Update();
+  c3->Update();
 
-  if(file_option==1){
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/totly_ang.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/locally.png");
-  }
-  else if(file_option==2){
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/totly_ang.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/locally.png");
-  }
-  else if(file_option==3){
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/totly_ang.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/locally.png");
-  }
+  TCanvas *c4 = new TCanvas("ang_polar","ang_polar",700,600);
+  c4->SetLeftMargin(0.15);
+  c4->cd();
+  ang_polar->SetLineWidth(2);
+  ang_polar->SetLineColor(kBlue);
+  ang_polar->Draw("hist");
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c4->Update();
+
+  TCanvas *c5 = new TCanvas("ang_azi","ang_azi",700,600);
+  c5->SetLeftMargin(0.15);
+  c5->cd();
+  ang_azi->SetLineWidth(2);
+  ang_azi->SetLineColor(kBlue);
+  ang_azi->Draw("hist");
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c5->Update();
+
+  TString prefix = "../../../plots/scintillator_cube/";
+  TString type;
+  TString suffix;
+
+  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
+  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
+  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
+
+  suffix = prefix + type + "totly_ang_polar.png";
+  c1->SaveAs(suffix);
+
+  suffix = prefix + type + "totly_ang_azi.png";
+  c2->SaveAs(suffix);
+
+  suffix = prefix + type + "locally.png";
+  c3->SaveAs(suffix);
+
+  suffix = prefix + type + "ang_polar.png";
+  c4->SaveAs(suffix);
+
+  suffix = prefix + type + "ang_azi.png";
+  c5->SaveAs(suffix);
 
   // Save the plots into output file
   TString fout_name;
@@ -201,9 +299,18 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 
   c1->Write();
   c2->Write();
+  c3->Write();
+  c4->Write();
+  c5->Write();
 
-  totly_ang->Write();
+  totly_ang_polar->Write();
+  totly_ang_azi->Write();
   locally->Write();
+  ang_polar->Write();
+  ang_azi->Write();
+
+  trkfit_quality->Write();
+  for(int i = 0; i < 18; i++) path_length[i]->Write();
 
   fout->Close();
 
@@ -280,7 +387,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   std::vector<TLorentzVector> cube_array;
   TGraph2D *trk_graph;
   double trk_len; 
-  double trk_ang;
+  double trk_ang_pol, trk_ang_azi;
+  std::vector<double> track_info;
+  std::vector<double> chan_path;
 
   // Read the events to find one matches the cut
   while(out_tag==false){
@@ -306,7 +415,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
       }
 
       // 3D plot show the track (straight line)
-      std::tie(trk_len,trk_ang,trk_graph) = GetTrackLengthAngle(cube_array);
+      std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
 
       // Also draw 2D MPPC on each plane
       for(int i = 0; i < 18; i++){
@@ -706,8 +815,12 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
 
 }
 
-// Estimate the track length in 3*3*3 cube matrix and the angle with respect to positive Z axis
-std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVector> cube_array){
+// Fit the 3D track based on 3 cubes in each layer
+// The output contains:
+// (1) First std vector has track length, polar angle, azimuth angle and distance sum (measuring fit quality)
+// (2) Second std vector has path length seen by each channel (18 in total)
+// (3) A 3D track graph
+std::tuple<std::vector<double>,std::vector<double>,TGraph2D*> Get3DTrackFit(std::vector<TLorentzVector> cube_array){
 
   // Create some parameters
   TGraph *fit_xz = new TGraph();
@@ -715,14 +828,21 @@ std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVect
   TF1 *fit_func = new TF1("fit_func","[0]*x+[1]");
   TF1 *fit_back;
   TGraph2D *graph = new TGraph2D();
-  double x_temp, y_temp, z_temp;
+  std::vector<double> track_info;
+  std::vector<double> chan_path;
+  double x_temp, y_temp;
   double ax, bx;
   double ay, by;
   double dx, dy;
   double d;
-  double ang;
+  double ang_polar, ang_azimuth;
+  double dis_sum = 0;
+  double a, b, c;
   double bias = fCubeSize / 2;
   double size = 3 * fCubeSize;
+  double afirst, bfirst;
+  double asecond, bsecond;
+  TVector3 chan_pos;
 
   // Fill the graph
   for(int i = 0; i < cube_array.size(); i++){
@@ -756,9 +876,139 @@ std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVect
  
   // Compute the track total length
   d = sqrt(pow(dx,2) + pow(dy,2) + pow(size,2));
+  track_info.push_back(d); 
 
   // Compute the track angle with respect to positive Z axis
-  ang = TMath::ACos(size/d) * 180 / TMath::Pi();
+  ang_polar = TMath::ACos(size/d) * 180 / TMath::Pi();
+  track_info.push_back(ang_polar);
+
+  // Compute also the azimuth angle
+  if(dx>=0) ang_azimuth = TMath::ATan(dy/dx) * 180 / TMath::Pi();
+  else if(dx<0 && dy>0) ang_azimuth = TMath::ATan(dy/dx) * 180 / TMath::Pi() + 180;
+  else ang_azimuth = TMath::ATan(dy/dx) * 180 / TMath::Pi() - 180;
+
+  track_info.push_back(ang_azimuth);
+ 
+  // Compute the distance sum of each projected 2D points to the fit line
+  for(int i = 0; i < cube_array.size(); i++){
+
+    // XZ plane
+    a = 1;
+    b = -1 * ax;
+    c = -1 * bx;
+    x_temp = cube_array[i].X() * fCubeSize + bias;
+    y_temp = cube_array[i].Z() * fCubeSize + bias;
+    dis_sum += TMath::Abs(a*x_temp+b*y_temp+c) / sqrt(a*a + b*b);
+ 
+    // YZ plane
+    a = 1;
+    b = -1 * ay;
+    c = -1 * by;
+    x_temp = cube_array[i].Y() * fCubeSize + bias;
+    y_temp = cube_array[i].Z() * fCubeSize + bias;
+    dis_sum += TMath::Abs(a*x_temp+b*y_temp+c) / sqrt(a*a + b*b);
+
+  }
+
+  track_info.push_back(dis_sum);
+
+  // Compute the path length seen by each channel
+  double pos_xy, pos_z; // center position of the channel
+  double bl[2]; // bottom left
+  double br[2]; // bottom right
+  double tr[2]; // top right
+  double tl[2]; // top left
+  double path_temp;
+  double dis_temp;
+  std::vector<double> intersec;
+  double xy_temp, z_temp;
+
+  for(int n = 0; n < 18; n++){
+
+    intersec.clear();
+
+    chan_pos = GetMPPC2DPos(n+1);
+
+    if(chan_pos.Y()==-1){ // XZ plane
+      afirst = ax; bfirst = bx;
+      asecond = ay; bsecond = by;
+      pos_xy = chan_pos.X() * fCubeSize + bias;
+      pos_z = chan_pos.Z() * fCubeSize + bias;
+    }
+    else{ // YZ plane
+      afirst = ay; bfirst = by;
+      asecond = ax; bsecond = bx;
+      pos_xy = chan_pos.Y() * fCubeSize + bias;
+      pos_z = chan_pos.Z() * fCubeSize + bias;
+    }
+
+    // Get positions of 4 corner points
+    bl[0] = pos_xy - (fCubeSize / 2); 
+    bl[1] = pos_z - (fCubeSize / 2);
+    br[0] = pos_xy + (fCubeSize / 2);
+    br[1] = pos_z - (fCubeSize / 2);
+    tr[0] = pos_xy + (fCubeSize / 2);
+    tr[1] = pos_z + (fCubeSize / 2);
+    tl[0] = pos_xy - (fCubeSize / 2);
+    tl[1] = pos_z + (fCubeSize / 2);
+
+    // Now check the fit track
+    // If fit track is vertical
+    if(TMath::Abs(afirst)<1e-5){
+      if(TMath::Abs(bfirst-pos_xy)<(fCubeSize / 2)){
+        path_temp = sqrt(pow(fCubeSize,2) + pow(fCubeSize*asecond,2));
+      }
+      else path_temp = 0; 
+    }
+    // If fit track is diagonal
+    else if(TMath::Abs((TMath::Abs(afirst)-1))<1e-5){
+      dis_temp = TMath::Abs(pos_xy-afirst*pos_z-bfirst) / sqrt(1+afirst*afirst);
+      if(dis_temp<1e-5){
+        path_temp = sqrt(pow(fCubeSize,2) * 2 + pow(fCubeSize*asecond,2));
+      }  
+      else path_temp = 0;
+    }
+    // Other cases
+    else{
+      // Bottom line
+      z_temp = bl[1];
+      xy_temp = afirst * bl[1] + bfirst;
+      if(xy_temp > bl[0] && xy_temp < br[0]){
+        intersec.push_back(xy_temp);
+        intersec.push_back(z_temp);
+      }   
+      // Right vertical line
+      xy_temp = br[0];
+      z_temp = (xy_temp - bfirst) / afirst;
+      if(z_temp > br[1] && z_temp < tr[1]){
+        intersec.push_back(xy_temp);
+        intersec.push_back(z_temp);
+      }
+      // Top line
+      z_temp = tr[1];
+      xy_temp = afirst * tr[1] + bfirst;
+      if(xy_temp > tl[0] && xy_temp < tr[0]){
+        intersec.push_back(xy_temp);
+        intersec.push_back(z_temp);
+      }
+      // Left vertical line
+      xy_temp = tl[0];
+      z_temp = (xy_temp - bfirst) / afirst;
+      if(z_temp > bl[1] && z_temp < tl[1]){
+        intersec.push_back(xy_temp);
+        intersec.push_back(z_temp);
+      }
+
+      // Exactly 2 intersection points
+      if(intersec.size()==4){
+        path_temp = sqrt(pow(intersec[0]-intersec[2],2) + pow(intersec[1]-intersec[3],2) + pow((intersec[1]-intersec[3])*asecond,2));
+      }
+      else path_temp = 0;
+    }
+
+    chan_path.push_back(path_temp);
+
+  }
 
   // Draw the track (straight line)
   const int npoint = 100;
@@ -771,7 +1021,7 @@ std::tuple<double,double,TGraph2D*> GetTrackLengthAngle(std::vector<TLorentzVect
     graph->SetPoint(i,x_temp,y_temp,z_temp);
   }
 
-  return std::make_tuple(d,ang,graph);
+  return std::make_tuple(track_info,chan_path,graph);
 
 }
 
