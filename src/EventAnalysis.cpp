@@ -35,7 +35,8 @@ bool CheckIndexMatch(int,int,int,int);
 bool EventCosmicCut(std::vector<double>,double);
 
 // Global parameters
-double fCubeSize = 10; // In mm
+const double fCubeSize = 10; // In mm
+const int fChanNum = 18; // MPPC channels
 
 void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 
@@ -49,6 +50,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+  }
+  else if(file_option==4){
+    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
   }
 
   TreeManager filereader(fin_name);
@@ -126,10 +130,16 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   ang_azi->SetTitle("");
 
   // Distribution of distance sum (check track fit quality)
-  TH1D *trkfit_quality = new TH1D("trkfit_quality","trkfit_quality",60,0,40);
+  TH1D *trkfit_quality = new TH1D("trkfit_quality","trkfit_quality",80,0,40);
   trkfit_quality->SetTitle("");
   trkfit_quality->GetXaxis()->SetTitle("Distance sum / mm");
   trkfit_quality->GetYaxis()->SetTitle("Number of events / bin");
+  trkfit_quality->GetXaxis()->SetLabelSize(0.04);
+  trkfit_quality->GetXaxis()->SetTitleSize(0.04);
+  trkfit_quality->GetYaxis()->SetLabelSize(0.04);
+  trkfit_quality->GetYaxis()->SetTitleSize(0.04);
+  trkfit_quality->GetYaxis()->SetTitleOffset(1.4);
+  trkfit_quality->SetTitle("");
 
   // Distribution of path length seen by each channel
   TH1D *path_length[18];
@@ -139,6 +149,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
     path_length[i] = new TH1D(title,title,60,0,20);
     path_length[i]->GetXaxis()->SetTitle("Estimated path length / mm");
     path_length[i]->GetYaxis()->SetTitle("Number of events / bin");
+    path_length[i]->SetTitle(title);
+    path_length[i]->SetLineWidth(2);
+    path_length[i]->SetLineColor(kBlue);
   }
 
   // Loop over all events
@@ -148,7 +161,15 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 
     // Check whether the event passed the cut
     ADC_temp.clear();
-    for(int i = 0; i < 18; i++) ADC_temp.push_back(data->ADC(i));
+    for(int i = 0; i < fChanNum; i++){
+   
+      if(file_option==4){
+        if(i==8) ADC_temp.push_back(data->ADC(18));
+        else ADC_temp.push_back(data->ADC(i));
+      }
+      else ADC_temp.push_back(data->ADC(i));
+
+    }
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
     if(pass_tag==false) continue;
@@ -176,7 +197,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
     ang_azi->Fill(trk_ang_azi);
 
     trkfit_quality->Fill(track_info[3]);
-    for(int i = 0; i < 18; i++) path_length[i]->Fill(chan_path[i]);
+    for(int i = 0; i < fChanNum; i++) path_length[i]->Fill(chan_path[i]);
 
   }
 
@@ -257,6 +278,18 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   gPad->SetGridx();
   gPad->SetGridy();
   c5->Update();
+
+  TCanvas *c6 = new TCanvas("trkfit_quality","trkfit_quality",700,600);
+  c6->SetLeftMargin(0.15);
+  c6->cd();
+  trkfit_quality->SetLineWidth(2);
+  trkfit_quality->SetLineColor(kBlue);
+  trkfit_quality->Draw("hist");
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c6->Update();
+
+  
 
   TString prefix = "../../../plots/scintillator_cube/";
   TString type;
