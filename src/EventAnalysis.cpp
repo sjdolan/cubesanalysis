@@ -289,8 +289,70 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   gPad->SetGridy();
   c6->Update();
 
-  
+  // MPPC channel face 1 + 3
+  TCanvas *c7 = new TCanvas("pathlength_xz","pathlength_xz",1200,1200);
+  c7->Divide(3,3);
+  c7->cd(1);
+  path_length[13]->Draw();
+  //gPad->SetLogy();
+  c7->cd(2);
+  path_length[4]->Draw();
+  //gPad->SetLogy();
+  c7->cd(3);
+  path_length[12]->Draw();
+  //gPad->SetLogy();
+  c7->cd(4);
+  path_length[2]->Draw();
+  //gPad->SetLogy(); 
+  c7->cd(5);
+  path_length[11]->Draw();
+  //gPad->SetLogy();
+  c7->cd(6);
+  path_length[1]->Draw();
+  //gPad->SetLogy();
+  c7->cd(7);
+  path_length[10]->Draw();
+  //gPad->SetLogy();
+  c7->cd(8);
+  path_length[0]->Draw();
+  //gPad->SetLogy();
+  c7->cd(9);
+  path_length[9]->Draw();
+  //gPad->SetLogy();
+  c7->Update();
 
+  // MPPC channel face 2 + 4
+  TCanvas *c8 = new TCanvas("pathlength_yz","pathlength_yz",1200,1200);
+  c8->Divide(3,3);
+  c8->cd(1);
+  path_length[8]->Draw();
+  //gPad->SetLogy();
+  c8->cd(2);
+  path_length[17]->Draw();
+  //gPad->SetLogy();
+  c8->cd(3);
+  path_length[7]->Draw(); 
+  //gPad->SetLogy();
+  c8->cd(4);
+  path_length[16]->Draw();
+  //gPad->SetLogy();
+  c8->cd(5);
+  path_length[6]->Draw();
+  //gPad->SetLogy();
+  c8->cd(6);
+  path_length[15]->Draw();
+  //gPad->SetLogy();
+  c8->cd(7);
+  path_length[5]->Draw();
+  //gPad->SetLogy();
+  c8->cd(8);
+  path_length[14]->Draw();
+  //gPad->SetLogy();
+  c8->cd(9);
+  path_length[4]->Draw();
+  //gPad->SetLogy();
+  c8->Update();
+  
   TString prefix = "../../../plots/scintillator_cube/";
   TString type;
   TString suffix;
