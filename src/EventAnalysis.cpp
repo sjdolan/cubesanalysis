@@ -27,6 +27,7 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 #include <TMath.h>
 
 // Function prototypes
+std::vector<double> GetChannelADC(Mppc*,int);
 TVector3 GetMPPC2DPos(int);
 TVector3 GetMatchCubePos(int,int);
 std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double>,double);
@@ -38,6 +39,7 @@ bool EventCosmicCut(std::vector<double>,double);
 const double fCubeSize = 10; // In mm
 const int fChanNum = 18; // MPPC channels
 
+// General event 3D analysis
 void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 
   std::string fin_name;
@@ -73,8 +75,12 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   std::vector<double> chan_path;
 
   // Create some histograms
+  double totly_lim;
+  if(file_option==4) totly_lim = 30000;
+  else totly_lim = 20000;
+
   // Total light yield vs. track direction (polar angle)
-  TH2D *totly_ang_polar = new TH2D("totly_ang_polar","totly_ang_polar",10,0,45,60,0,20000);
+  TH2D *totly_ang_polar = new TH2D("totly_ang_polar","totly_ang_polar",10,0,45,60,0,totly_lim);
   totly_ang_polar->GetXaxis()->SetTitle("Track polar angle #theta / degree");
   totly_ang_polar->GetYaxis()->SetTitle("Track light yield / ADC");
   totly_ang_polar->GetXaxis()->SetLabelSize(0.04);
@@ -86,7 +92,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   totly_ang_polar->SetTitle("");
 
   // (Azimuth angle)
-  TH2D *totly_ang_azi = new TH2D("totly_ang_azi","totly_ang_azi",20,-180,180,60,0,20000);
+  TH2D *totly_ang_azi = new TH2D("totly_ang_azi","totly_ang_azi",20,-180,180,60,0,totly_lim);
   totly_ang_azi->GetXaxis()->SetTitle("Track azimuth angle #phi / degree");
   totly_ang_azi->GetYaxis()->SetTitle("Track light yield / ADC");
   totly_ang_azi->GetXaxis()->SetLabelSize(0.04);
@@ -130,7 +136,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   ang_azi->SetTitle("");
 
   // Distribution of distance sum (check track fit quality)
-  TH1D *trkfit_quality = new TH1D("trkfit_quality","trkfit_quality",80,0,40);
+  TH1D *trkfit_quality = new TH1D("trkfit_quality","trkfit_quality",80,0,30);
   trkfit_quality->SetTitle("");
   trkfit_quality->GetXaxis()->SetTitle("Distance sum / mm");
   trkfit_quality->GetYaxis()->SetTitle("Number of events / bin");
@@ -142,9 +148,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   trkfit_quality->SetTitle("");
 
   // Distribution of path length seen by each channel
-  TH1D *path_length[18];
+  TH1D *path_length[fChanNum];
   TString title;
-  for(int i = 0; i < 18; i++){
+  for(int i = 0; i < fChanNum; i++){
     title.Form("channel%d_path",i+1);
     path_length[i] = new TH1D(title,title,60,0,20);
     path_length[i]->GetXaxis()->SetTitle("Estimated path length / mm");
@@ -160,16 +166,8 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
     data->GetMppc(n);
 
     // Check whether the event passed the cut
-    ADC_temp.clear();
-    for(int i = 0; i < fChanNum; i++){
-   
-      if(file_option==4){
-        if(i==8) ADC_temp.push_back(data->ADC(18));
-        else ADC_temp.push_back(data->ADC(i));
-      }
-      else ADC_temp.push_back(data->ADC(i));
+    ADC_temp = GetChannelADC(data,file_option);
 
-    }
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
     if(pass_tag==false) continue;
@@ -224,6 +222,16 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
  
   // Draw the plots
   gStyle->SetOptStat(0);
+  double left_begin;
+  double top_begin;
+  if(file_option==4){
+    left_begin = 0.18;
+    top_begin = 0.68;
+  }
+  else{
+    left_begin = 0.55;
+    top_begin = 0.68;
+  }
 
   TCanvas *c1 = new TCanvas("totly_ang_polar","totly_ang_polar",800,600);
   c1->SetLeftMargin(0.15);
@@ -249,11 +257,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   locally->Draw("hist");
 
   name.Form("Landau fit:");
-  pl_name->DrawTextNDC(0.55,0.68,name);
+  pl_name->DrawTextNDC(left_begin,top_begin,name);
   name.Form("MPV = %f ADC / mm",mean);
-  pl_mean->DrawTextNDC(0.55,0.61,name);
-  //name.Form("Sigma = %f ADC / mm",rms);
-  //pl_rms->DrawTextNDC(0.55,0.54,name);
+  pl_mean->DrawTextNDC(left_begin,top_begin-0.07,name);
 
   gPad->SetGridx();
   gPad->SetGridy();
@@ -360,6 +366,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
   else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
   else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
+  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
 
   suffix = prefix + type + "totly_ang_polar.png";
   c1->SaveAs(suffix);
@@ -376,6 +383,15 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   suffix = prefix + type + "ang_azi.png";
   c5->SaveAs(suffix);
 
+  suffix = prefix + type + "trkfit_quality.png";
+  c6->SaveAs(suffix);
+
+  suffix = prefix + type + "pathlength_xz.png";
+  c7->SaveAs(suffix);
+
+  suffix = prefix + type + "pathlength_yz.png";
+  c8->SaveAs(suffix);
+
   // Save the plots into output file
   TString fout_name;
 
@@ -388,6 +404,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   else if(file_option==3){
     fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon_GluedFiber.root";
   }
+  else if(file_option==4){
+    fout_name = "../../results/Event3DAnalysis_SFGDCubes_GluedFiber.root";
+  }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
@@ -397,6 +416,9 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   c3->Write();
   c4->Write();
   c5->Write();
+  c6->Write();
+  c7->Write();
+  c8->Write();
 
   totly_ang_polar->Write();
   totly_ang_azi->Write();
@@ -405,7 +427,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   ang_azi->Write();
 
   trkfit_quality->Write();
-  for(int i = 0; i < 18; i++) path_length[i]->Write();
+  for(int i = 0; i < fChanNum; i++) path_length[i]->Write();
 
   fout->Close();
 
@@ -427,6 +449,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+  }
+  else if(file_option==4){
+    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
   }
 
   TreeManager filereader(fin_name);
@@ -495,8 +520,8 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
     data->GetMppc(rand_event);
 
     // Check whether this event passes the cosmic cut 
-    ADC_temp.clear();
-    for(int i = 0; i < 18; i++) ADC_temp.push_back(data->ADC(i));
+    ADC_temp = GetChannelADC(data,file_option);
+
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
     if(pass_tag==true){
@@ -513,7 +538,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
       std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
 
       // Also draw 2D MPPC on each plane
-      for(int i = 0; i < 18; i++){
+      for(int i = 0; i < fChanNum; i++){
         cube_pos = GetMPPC2DPos(i+1);
         MPPC2D_xz->Fill(cube_pos.X(),cube_pos.Z(),data->ADC(i));
         MPPC2D_yz->Fill(cube_pos.Y(),cube_pos.Z(),data->ADC(i)); 
@@ -583,6 +608,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   else if(file_option==3){
     c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/combine.png");
   }
+  else if(file_option==4){
+    c4->SaveAs("../../../plots/scintillator_cube/sfgdcubes_gluedfiber/combine.png");
+  }
 
   // Save the plot into output file
   TString fout_name;
@@ -595,6 +623,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
   }
   else if(file_option==3){
     fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon_GluedFiber.root";
+  }
+  else if(file_option==4){
+    fout_name = "../../results/EventDisplay_SFGDCubes_GluedFiber.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -628,6 +659,9 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
   }
+  else if(file_option==4){
+    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+  }
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -640,9 +674,9 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
 
   // Light yield distributions for each channel 0 - 17
   TString name;
-  TH1D *MPPC_ly[18];
+  TH1D *MPPC_ly[fChanNum];
   
-  for(int i = 0; i < 18; i++){
+  for(int i = 0; i < fChanNum; i++){
     name.Form("MPPC_ly_chan%i",i+1);
     MPPC_ly[i] = new TH1D(name,name,80,500,4500);
     MPPC_ly[i]->GetXaxis()->SetTitle("ADC");
@@ -657,13 +691,13 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
 
     data->GetMppc(n);
  
-    ADC_temp.clear();
-    for(int i = 0; i < 18; i++) ADC_temp.push_back(data->ADC(i));
+    ADC_temp = GetChannelADC(data,file_option);
+
     passtag = EventCosmicCut(ADC_temp,ADC_cut);
 
     if(passtag==false) continue;  
 
-    for(int i = 0; i < 18; i++) MPPC_ly[i]->Fill(data->ADC(i)); 
+    for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(ADC_temp[i]); 
 
   }
 
@@ -733,18 +767,20 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   //gPad->SetLogy();
   c2->Update();
 
-  if(file_option==1){
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/MPPC2D_xz.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/MPPC2D_yz.png");
-  }
-  else if(file_option==2){    
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/MPPC2D_xz.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/MPPC2D_yz.png");
-  }
-  else if(file_option==3){
-    c1->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/MPPC2D_xz.png");
-    c2->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/MPPC2D_yz.png");
-  }
+  TString prefix = "../../../plots/scintillator_cube/";
+  TString type;
+  TString suffix;
+
+  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
+  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
+  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
+  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
+
+  suffix = prefix + type + "MPPC2D_xz.png";
+  c1->SaveAs(suffix);
+
+  suffix = prefix + type + "MPPC2D_yz.png";
+  c2->SaveAs(suffix);
 
   // Save the plots into output file
   TString fout_name;
@@ -758,11 +794,14 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
   else if(file_option==3){
     fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_GluedFiber.root";
   }
+  else if(file_option==4){
+    fout_name = "../../results/MPPCLightYield_SFGDCubes_GluedFiber.root";
+  }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
   
-  for(int i = 0; i < 18; i++) MPPC_ly[i]->Write();
+  for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Write();
  
   c1->Write();
   c2->Write();
@@ -774,6 +813,25 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
 // ------------------------------------------------
 // Below are auxiliary functions
 // ------------------------------------------------
+
+// Get a vector containing ADC from each channel
+std::vector<double> GetChannelADC(Mppc *input, int file_option){
+
+  std::vector<double> ADC_temp;
+
+  for(int i = 0; i < fChanNum; i++){
+
+    if(file_option==4){
+      if(i==8) ADC_temp.push_back(input->ADC(18));
+      else ADC_temp.push_back(input->ADC(i));
+    }
+    else ADC_temp.push_back(input->ADC(i));
+
+  }
+
+  return ADC_temp;
+
+}
 
 // Get the 3D matched cubes (one per layer)
 // For each cube the 3D position and light yield will be returned
@@ -1137,7 +1195,7 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
   bool isHit; 
 
   // Loop over all MPPC channels (currently 18)
-  for(int i = 1; i <= 18; i++){
+  for(int i = 1; i <= fChanNum; i++){
 
     isHit = false;
 
