@@ -20,6 +20,7 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 #include <TH1D.h>
 #include <TH2D.h>
 #include <TGraph.h>
+#include <TGraph2D.h>
 #include <TTree.h>
 #include <TString.h>
 #include <TFile.h>
@@ -34,13 +35,254 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double>,double);
 std::tuple<std::vector<double>,std::vector<double>,TGraph2D*> Get3DTrackFit(std::vector<TLorentzVector>);
 bool CheckIndexMatch(int,int,int,int);
 bool EventCosmicCut(std::vector<double>,double);
+TVector3 GetCubeChannel(TVector3);
 
 // Global parameters
 const double fCubeSize = 10; // In mm
 const int fChanNum = 18; // MPPC channels
+const double fADCCut = 500; // units
+
+// General cube crosstalk analysis
+void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
+
+  std::string fin_name;
+
+  if(file_option==1){
+    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==2){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+  }
+  else if(file_option==4){
+    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+  }
+
+  TreeManager filereader(fin_name);
+  Mppc *data = filereader.tmCD();
+
+  int n_event = data->GetInputTree()->GetEntries();
+
+  // Create some variables
+  std::vector<double> ADC_temp;
+  bool pass_tag;
+  std::vector<TLorentzVector> cube_array;
+  std::vector<double> track_info;
+  std::vector<double> chan_path;
+  TGraph2D *trk_graph;
+  TVector3 cubepos_cen;
+  TVector3 cubepos_bei[4];
+  TVector3 cubechan_cen;
+  TVector3 cubechan_bei[4];
+  int nx, ny;
+  double cubely_bei[4];
+  double cubely_cen;
+
+  // Create some histograms
+  TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",60,0,30);
+  xtalk_rate->GetXaxis()->SetTitle("LY (nearby cube) / LY(track cube) / %");
+  xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
+  xtalk_rate->GetXaxis()->SetLabelSize(0.04);
+  xtalk_rate->GetXaxis()->SetTitleSize(0.04);
+  xtalk_rate->GetYaxis()->SetLabelSize(0.04);
+  xtalk_rate->GetYaxis()->SetTitleSize(0.04);
+  xtalk_rate->GetYaxis()->SetTitleOffset(1.4);
+  xtalk_rate->SetTitle("");
+
+  TH1D *trkcube_ly = new TH1D("trkcube_ly","trkcube_ly",90,0,9000);
+  trkcube_ly->GetXaxis()->SetTitle("Cube light yield / ADC");
+  trkcube_ly->GetYaxis()->SetTitle("Probability density / bin");
+  trkcube_ly->GetXaxis()->SetLabelSize(0.04);
+  trkcube_ly->GetXaxis()->SetTitleSize(0.04);
+  trkcube_ly->GetYaxis()->SetLabelSize(0.04);
+  trkcube_ly->GetYaxis()->SetTitleSize(0.04);
+  trkcube_ly->GetYaxis()->SetTitleOffset(1.4);
+  trkcube_ly->SetTitle("");
+
+  TH1D *beicube_ly = (TH1D*)trkcube_ly->Clone("beicube_ly");
+
+  // Loop over all events
+  for(int n = 0; n < n_event; n++){
+
+    data->GetMppc(n);
+
+    ADC_temp = GetChannelADC(data,file_option);
+
+    pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
+    if(pass_tag==false) continue;
+ 
+    cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
+
+    // Only select the vertical tracks
+    std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+    if(TMath::Abs(track_info[1])>1e-4) continue;
+
+    // Estimate the crosstalk around the middle layer cube
+    cubepos_cen.SetXYZ(cube_array[1].X(),cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[0].SetXYZ(cube_array[1].X()-1,cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[1].SetXYZ(cube_array[1].X()+1,cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[2].SetXYZ(cube_array[1].X(),cube_array[1].Y()+1,cube_array[1].Z());
+    cubepos_bei[3].SetXYZ(cube_array[1].X(),cube_array[1].Y()-1,cube_array[1].Z());
+
+    cubechan_cen = GetCubeChannel(cubepos_cen);
+    for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
+   
+    // Check how many nearby cubes in each side (X direction or Y direction)
+    nx = 0; ny = 0;
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1) continue;
+
+      // Check X direction
+      if(cubepos_bei[i].X()==cubepos_cen.X()) nx += 1;
+
+      // Check Y direction
+      if(cubepos_bei[i].Y()==cubepos_cen.Y()) ny += 1;
+    }
+
+    // First estimate the light yield in each nearby cube
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1){
+        cubely_bei[i] = 0;
+        continue;
+      } 
+
+      if(cubechan_bei[i].X()==cubechan_cen.X()) cubely_bei[i] = ADC_temp[int(cubechan_bei[i].Y())-1] * 2;
+      else cubely_bei[i] = ADC_temp[int(cubechan_bei[i].X())-1] * 2;
+    }
+
+    // Then estimate the light yield in the center cube
+    cubely_cen = (ADC_temp[cubechan_cen.X()-1] - (cubely_bei[2] + cubely_bei[3]) / 2)
+                 + (ADC_temp[cubechan_cen.Y()-1] - (cubely_bei[0] + cubely_bei[1]) / 2);
+
+    // Fill the histograms
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1) continue;
+
+      xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
+      beicube_ly->Fill(cubely_bei[i]);
+    }
+    trkcube_ly->Fill(cubely_cen);
+
+  }
+
+  // Fit the crosstalk distribution with Landau function
+  double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
+  double range_upp = xtalk_rate->GetMean() + 4 * xtalk_rate->GetRMS();
+  xtalk_rate->Fit("landau","","",range_low,range_upp);
+  TF1 *fit_func = xtalk_rate->GetFunction("landau");
+  double mean = fit_func->GetParameter(1);
+  double rms = fit_func->GetParameter(2);
+
+  std::cout << "Crosstalk rate MPV: " << mean << endl;
+
+  TString name;
+  TText *pl_name = new TText();
+  pl_name->SetTextSize(0.04);
+  TText *pl_mean = new TText();
+  pl_mean->SetTextSize(0.03);
+  TText *pl_rms = new TText();
+  pl_rms->SetTextSize(0.03);
+
+  // Scale the histograms
+  double scale_trkcube = trkcube_ly->Integral();
+  double scale_beicube = beicube_ly->Integral();
+  trkcube_ly->Scale(1./scale_trkcube);
+  beicube_ly->Scale(1./scale_beicube);
+  trkcube_ly->GetYaxis()->SetRangeUser(1e-3,1);
+  beicube_ly->GetYaxis()->SetRangeUser(1e-3,1);
+
+  // Draw the plots
+  gStyle->SetOptStat(0);
+
+  TCanvas *c1 = new TCanvas("xtalk_rate","xtalk_rate",700,600);
+  c1->SetLeftMargin(0.15);
+  c1->cd();
+  xtalk_rate->SetLineWidth(2);
+  xtalk_rate->SetLineColor(kBlue);
+  xtalk_rate->Draw("hist");
+
+  name.Form("Landau fit:");
+  pl_name->DrawTextNDC(0.55,0.68,name);
+  name.Form("MPV = %f percent",mean);
+  pl_mean->DrawTextNDC(0.55,0.61,name);
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c1->Update();
+
+  TCanvas *c2 = new TCanvas("cubely_comp","cubely_comp",700,600);
+  c2->SetLeftMargin(0.15);
+  c2->cd();
+
+  trkcube_ly->SetLineWidth(2);
+  trkcube_ly->SetLineColor(kRed);
+  beicube_ly->SetLineWidth(2);
+  beicube_ly->SetLineColor(kBlue);
+  
+  trkcube_ly->Draw("hist");
+  beicube_ly->Draw("hist same");
+  TLegend *lg2 = new TLegend(0.3,0.7,0.55,0.87);
+  lg2->SetLineWidth(0);
+  lg2->SetFillStyle(0);
+  lg2->AddEntry(trkcube_ly,"Track cube","l");
+  lg2->AddEntry(beicube_ly,"Nearby cube","l");
+  lg2->Draw("same");
+  gPad->SetLogy();
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c2->Update();
+
+  TString prefix = "../../../plots/scintillator_cube/";
+  TString type;
+  TString suffix;
+
+  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
+  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
+  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
+  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
+
+  suffix = prefix + type + "xtalk_rate.png";
+  c1->SaveAs(suffix);
+
+  suffix = prefix + type + "cubely_comp.png";
+  c2->SaveAs(suffix);
+
+  // Save the plots into output file
+  TString fout_name;
+
+  if(file_option==1){
+    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_NoTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==2){
+    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_NoGluedFiber.root";
+  }
+  else if(file_option==3){
+    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_GluedFiber.root";
+  }
+  else if(file_option==4){
+    fout_name = "../../results/CrosstalkAnalysis_SFGDCubes_GluedFiber.root";
+  }
+
+  TFile *fout = new TFile(fout_name.Data(),"recreate");
+  fout->cd();
+ 
+  c1->Write();
+  c2->Write();
+
+  xtalk_rate->Write();
+  trkcube_ly->Write();
+  beicube_ly->Write();
+
+  fout->Close();
+
+}
 
 // General event 3D analysis
-void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
+void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
 
@@ -210,7 +452,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
   double mean = fit_func->GetParameter(1);
   double rms = fit_func->GetParameter(2);
 
-  std::cout << "Local light yield mean: " << mean << ", RMS: " << rms << endl;
+  std::cout << "Local light yield MPV: " << mean << endl;
 
   TString name;
   TText *pl_name = new TText();
@@ -437,7 +679,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = 500){
 // Notation: file_option = input data file want to be used
 // Notation: seed = random number generator
 // Notation: ADC_cut = a cut applied on ADC value
-void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
+void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
   std::string fin_name;
 
@@ -646,7 +888,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = 500){
 }
 
 // Plot the ADC distribution for each channel
-void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
+void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
 
@@ -813,6 +1055,52 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = 500){
 // ------------------------------------------------
 // Below are auxiliary functions
 // ------------------------------------------------
+
+// Get the two MPPC channel number corresponding to the cube
+TVector3 GetCubeChannel(TVector3 cube){
+
+  TVector3 chan_vec;
+
+  int x = int(cube.X());
+  int y = int(cube.Y());
+  int z = int(cube.Z());
+
+  // Bottom layer
+  if(x==0 && y==0 && z==0) chan_vec.SetXYZ(10,6,0);
+  else if(x==1 && y==0 && z==0) chan_vec.SetXYZ(1,6,0);
+  else if(x==2 && y==0 && z==0) chan_vec.SetXYZ(11,6,0);
+  else if(x==0 && y==1 && z==0) chan_vec.SetXYZ(10,15,0);
+  else if(x==1 && y==1 && z==0) chan_vec.SetXYZ(1,15,0);
+  else if(x==2 && y==1 && z==0) chan_vec.SetXYZ(11,15,0);
+  else if(x==0 && y==2 && z==0) chan_vec.SetXYZ(10,5,0);
+  else if(x==1 && y==2 && z==0) chan_vec.SetXYZ(1,5,0);
+  else if(x==2 && y==2 && z==0) chan_vec.SetXYZ(11,5,0);
+  // Middle layer
+  else if(x==0 && y==0 && z==1) chan_vec.SetXYZ(3,16,0);
+  else if(x==1 && y==0 && z==1) chan_vec.SetXYZ(12,16,0); 
+  else if(x==2 && y==0 && z==1) chan_vec.SetXYZ(2,16,0);
+  else if(x==0 && y==1 && z==1) chan_vec.SetXYZ(3,7,0);
+  else if(x==1 && y==1 && z==1) chan_vec.SetXYZ(12,7,0);
+  else if(x==2 && y==1 && z==1) chan_vec.SetXYZ(2,7,0);
+  else if(x==0 && y==2 && z==1) chan_vec.SetXYZ(3,17,0);
+  else if(x==1 && y==2 && z==1) chan_vec.SetXYZ(12,17,0);
+  else if(x==2 && y==2 && z==1) chan_vec.SetXYZ(2,17,0);
+  // Top layer
+  else if(x==0 && y==0 && z==2) chan_vec.SetXYZ(13,9,0);
+  else if(x==1 && y==0 && z==2) chan_vec.SetXYZ(4,9,0);
+  else if(x==2 && y==0 && z==2) chan_vec.SetXYZ(14,9,0);
+  else if(x==0 && y==1 && z==2) chan_vec.SetXYZ(13,18,0);
+  else if(x==1 && y==1 && z==2) chan_vec.SetXYZ(4,18,0);
+  else if(x==2 && y==1 && z==2) chan_vec.SetXYZ(14,18,0);
+  else if(x==0 && y==2 && z==2) chan_vec.SetXYZ(13,8,0);
+  else if(x==1 && y==2 && z==2) chan_vec.SetXYZ(4,8,0);
+  else if(x==2 && y==2 && z==2) chan_vec.SetXYZ(14,8,0);
+  // other cases
+  else chan_vec.SetXYZ(-1,-1,-1);
+
+  return chan_vec;
+
+}
 
 // Get a vector containing ADC from each channel
 std::vector<double> GetChannelADC(Mppc *input, int file_option){
@@ -1219,7 +1507,7 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
   }
 
   // Check if the requirements are satisfied 
-  if(n_tothit>=6 && n_topxzhit==1 && n_topyzhit==1 && n_botxzhit==1 && n_botyzhit==1){
+  if(n_tothit==6 && n_topxzhit==1 && n_topyzhit==1 && n_botxzhit==1 && n_botyzhit==1){
     return true;
   }
   else{
