@@ -82,7 +82,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   // Create some histograms
   TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",60,0,30);
-  xtalk_rate->GetXaxis()->SetTitle("LY (nearby cube) / LY(track cube) / %");
+  xtalk_rate->GetXaxis()->SetTitle("ADC(crosstalk channel) / ADC(track channel) / %");
   xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
   xtalk_rate->GetXaxis()->SetLabelSize(0.04);
   xtalk_rate->GetXaxis()->SetTitleSize(0.04);
@@ -91,8 +91,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   xtalk_rate->GetYaxis()->SetTitleOffset(1.4);
   xtalk_rate->SetTitle("");
 
-  TH1D *trkcube_ly = new TH1D("trkcube_ly","trkcube_ly",90,0,9000);
-  trkcube_ly->GetXaxis()->SetTitle("Cube light yield / ADC");
+  TH1D *trkcube_ly = new TH1D("trkcube_ly","trkcube_ly",90,0,4500);
+  trkcube_ly->GetXaxis()->SetTitle("MPPC channel value / ADC");
   trkcube_ly->GetYaxis()->SetTitle("Probability density / bin");
   trkcube_ly->GetXaxis()->SetLabelSize(0.04);
   trkcube_ly->GetXaxis()->SetTitleSize(0.04);
@@ -142,8 +142,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       if(cubepos_bei[i].Y()==cubepos_cen.Y()) ny += 1;
     }
 
+    // Method 1: consider cube LY from two fibers
     // First estimate the light yield in each nearby cube
-    for(int i = 0; i < 4; i++){
+    /*for(int i = 0; i < 4; i++){
       // Not include cube outside the matrix
       if(cubechan_bei[i].X()==-1){
         cubely_bei[i] = 0;
@@ -155,8 +156,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     }
 
     // Then estimate the light yield in the center cube
-    cubely_cen = (ADC_temp[cubechan_cen.X()-1] - (cubely_bei[2] + cubely_bei[3]) / 2)
-                 + (ADC_temp[cubechan_cen.Y()-1] - (cubely_bei[0] + cubely_bei[1]) / 2);
+    cubely_cen = (ADC_temp[int(cubechan_cen.X())-1] - (cubely_bei[2] + cubely_bei[3]) / 2)
+                 + (ADC_temp[int(cubechan_cen.Y())-1] - (cubely_bei[0] + cubely_bei[1]) / 2);
 
     // Fill the histograms
     for(int i = 0; i < 4; i++){
@@ -166,7 +167,40 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
       beicube_ly->Fill(cubely_bei[i]);
     }
-    trkcube_ly->Fill(cubely_cen);
+    trkcube_ly->Fill(cubely_cen);*/
+
+    // Method 2: consider cube LY from only one fiber
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1){
+        cubely_bei[i] = 0;
+        continue;
+      } 
+
+      if(cubechan_bei[i].X()==cubechan_cen.X()) cubely_bei[i] = ADC_temp[int(cubechan_bei[i].Y())-1];
+      else cubely_bei[i] = ADC_temp[int(cubechan_bei[i].X())-1];
+    }
+
+    // Compute crosstalk
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1) continue;
+
+      if(cubechan_bei[i].X()==cubechan_cen.X()){
+        //cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - (cubely_bei[0] + cubely_bei[1]);
+        cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - 2 * cubely_bei[i];
+        xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
+        beicube_ly->Fill(cubely_bei[i]);
+        trkcube_ly->Fill(cubely_cen);
+      }
+      else{
+        //cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - (cubely_bei[2] + cubely_bei[3]);
+        cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - 2 * cubely_bei[i];
+        xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
+        beicube_ly->Fill(cubely_bei[i]);
+        trkcube_ly->Fill(cubely_cen);
+      }
+    }
 
   }
 
@@ -225,11 +259,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   
   trkcube_ly->Draw("hist");
   beicube_ly->Draw("hist same");
-  TLegend *lg2 = new TLegend(0.3,0.7,0.55,0.87);
+  TLegend *lg2 = new TLegend(0.35,0.7,0.65,0.87);
   lg2->SetLineWidth(0);
   lg2->SetFillStyle(0);
-  lg2->AddEntry(trkcube_ly,"Track cube","l");
-  lg2->AddEntry(beicube_ly,"Nearby cube","l");
+  lg2->AddEntry(trkcube_ly,"Track channel","l");
+  lg2->AddEntry(beicube_ly,"Crosstalk channel","l");
   lg2->Draw("same");
   gPad->SetLogy();
   gPad->SetGridx();
