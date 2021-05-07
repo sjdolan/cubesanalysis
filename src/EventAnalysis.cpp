@@ -46,18 +46,23 @@ const double fADCCut = 500; // units
 void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
+  bool swap;
 
   if(file_option==1){
     fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+    swap = false;
   }
   else if(file_option==4){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+    swap = true;
   }
 
   TreeManager filereader(fin_name);
@@ -106,7 +111,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n);
+    data->GetMppc(n,swap);
 
     ADC_temp = GetChannelADC(data,file_option);
 
@@ -128,7 +133,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
     cubechan_cen = GetCubeChannel(cubepos_cen);
     for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
-   
+ 
+    if(ADC_temp[int(cubechan_cen.Y())-1]<fADCCut || ADC_temp[int(cubechan_cen.X())-1]<fADCCut) continue;
+  
     // Check how many nearby cubes in each side (X direction or Y direction)
     nx = 0; ny = 0;
     for(int i = 0; i < 4; i++){
@@ -191,14 +198,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - 2 * cubely_bei[i];
         xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
         beicube_ly->Fill(cubely_bei[i]);
-        trkcube_ly->Fill(cubely_cen);
+        trkcube_ly->Fill(ADC_temp[int(cubechan_cen.Y())-1]);
       }
       else{
         //cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - (cubely_bei[2] + cubely_bei[3]);
         cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - 2 * cubely_bei[i];
         xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
         beicube_ly->Fill(cubely_bei[i]);
-        trkcube_ly->Fill(cubely_cen);
+        trkcube_ly->Fill(ADC_temp[int(cubechan_cen.X())-1]);
       }
     }
 
@@ -319,18 +326,23 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
+  bool swap;
 
   if(file_option==1){
     fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+    swap = false;
   }
   else if(file_option==4){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+    swap = true;
   }
 
   TreeManager filereader(fin_name);
@@ -439,7 +451,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n);
+    data->GetMppc(n,swap);
 
     // Check whether the event passed the cut
     ADC_temp = GetChannelADC(data,file_option);
@@ -716,18 +728,23 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
   std::string fin_name;
+  bool swap;
 
   if(file_option==1){
     fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+    swap = false;
   }
   else if(file_option==4){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+    swap = true;
   }
 
   TreeManager filereader(fin_name);
@@ -793,7 +810,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
     // Randomly choose an event
     rand_event = rand->Rndm() * n_event; 
     //std::cout << "Event number: " << rand_event << endl;
-    data->GetMppc(rand_event);
+    data->GetMppc(rand_event,swap);
 
     // Check whether this event passes the cosmic cut 
     ADC_temp = GetChannelADC(data,file_option);
@@ -925,18 +942,23 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
+  bool swap;
 
   if(file_option==1){
     fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==2){
     fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
+    swap = false;
   }
   else if(file_option==3){
     fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
+    swap = false;
   }
   else if(file_option==4){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+    swap = true;
   }
 
   TreeManager filereader(fin_name);
@@ -965,7 +987,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   // Loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n);
+    data->GetMppc(n,swap);
  
     ADC_temp = GetChannelADC(data,file_option);
 
@@ -1143,11 +1165,13 @@ std::vector<double> GetChannelADC(Mppc *input, int file_option){
 
   for(int i = 0; i < fChanNum; i++){
 
-    if(file_option==4){
-      if(i==8) ADC_temp.push_back(input->ADC(18));
-      else ADC_temp.push_back(input->ADC(i));
-    }
-    else ADC_temp.push_back(input->ADC(i));
+    //if(file_option==4){
+    //  if(i==8) ADC_temp.push_back(input->ADC(18));
+    //  else ADC_temp.push_back(input->ADC(i));
+    //}
+    //else ADC_temp.push_back(input->ADC(i));
+
+    ADC_temp.push_back(input->ADC(i));
 
   }
 
@@ -1512,6 +1536,8 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
   //int n_botxzhit_cut = 0;
   int n_botyzhit = 0;
   //int n_botyzhit_cut = 0;
+  int n_midxzhit = 0;
+  int n_midyzhit = 0;
   int n_tothit = 0;
   
   bool isHit; 
@@ -1537,11 +1563,16 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
     else if(i==11 || i==1 || i==10) n_botxzhit += 1;
     // Bottom layer (YZ plane)
     else if(i==6 || i==15 || i==5) n_botyzhit += 1;
-      
+    // Middle layer (XZ plane)
+    else if(i==3 || i==7 || i==2) n_midxzhit += 1;
+    // Middle layer (YZ plane)   
+    else if(i==17 || i==12 || i==16) n_midyzhit += 1;
+   
   }
 
   // Check if the requirements are satisfied 
   if(n_tothit==6 && n_topxzhit==1 && n_topyzhit==1 && n_botxzhit==1 && n_botyzhit==1){
+  //if(n_midxzhit==1 && n_midyzhit==1 && n_topxzhit==1 && n_topyzhit==1 && n_botxzhit==1 && n_botyzhit==1){
     return true;
   }
   else{
