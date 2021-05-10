@@ -40,7 +40,9 @@ TVector3 GetCubeChannel(TVector3);
 // Global parameters
 const double fCubeSize = 10; // In mm
 const int fChanNum = 18; // MPPC channels
+// The ADC cut, currently for glued cubes (> 500 units) and for SFGD cubes (> 1000 units)
 const double fADCCut = 500; // units
+const double fADCUppCut = 4000; // units
 
 // General cube crosstalk analysis
 void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
@@ -83,11 +85,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   TVector3 cubechan_bei[4];
   int nx, ny;
   double cubely_bei[4];
-  double cubely_cen;
+  double xtalk_frac;
+  double noise_temp;
 
   // Create some histograms
   TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",60,0,30);
-  xtalk_rate->GetXaxis()->SetTitle("ADC(crosstalk channel) / ADC(track channel) / %");
+  xtalk_rate->GetXaxis()->SetTitle("Crosstalk fraction / %");
   xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
   xtalk_rate->GetXaxis()->SetLabelSize(0.04);
   xtalk_rate->GetXaxis()->SetTitleSize(0.04);
@@ -107,8 +110,75 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   trkcube_ly->SetTitle("");
 
   TH1D *beicube_ly = (TH1D*)trkcube_ly->Clone("beicube_ly");
+  TH1D *noise_ly = (TH1D*)trkcube_ly->Clone("noise_ly");
 
-  // Loop over all events
+  TH1D *noise_esti = new TH1D("noise_esti","noise_esti",60,0,400);
+  noise_esti->GetXaxis()->SetTitle("Estimated noise level / ADC");
+  noise_esti->GetYaxis()->SetTitle("Number of events / bin");
+  noise_esti->GetXaxis()->SetLabelSize(0.04);
+  noise_esti->GetXaxis()->SetTitleSize(0.04);
+  noise_esti->GetYaxis()->SetLabelSize(0.04);
+  noise_esti->GetYaxis()->SetTitleSize(0.04);
+  noise_esti->GetYaxis()->SetTitleOffset(1.4);
+  noise_esti->SetTitle("");
+
+  // Estimate the noise level in order to subtract it
+  // First loop over all events
+  for(int n = 0; n < n_event; n++){
+
+    data->GetMppc(n,swap);
+
+    ADC_temp = GetChannelADC(data,file_option);
+
+    pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
+    if(pass_tag==false) continue;
+
+    cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
+ 
+    // Only select the vertical tracks
+    std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+    if(TMath::Abs(track_info[1])>1e-4) continue;
+
+    // In order to estimate the noise level consider the cube furtherest away from the main cube
+    cubepos_cen.SetXYZ(cube_array[1].X(),cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[0].SetXYZ(cube_array[1].X()-2,cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[1].SetXYZ(cube_array[1].X()+2,cube_array[1].Y(),cube_array[1].Z());
+    cubepos_bei[2].SetXYZ(cube_array[1].X(),cube_array[1].Y()+2,cube_array[1].Z());
+    cubepos_bei[3].SetXYZ(cube_array[1].X(),cube_array[1].Y()-2,cube_array[1].Z());
+ 
+    cubechan_cen = GetCubeChannel(cubepos_cen);
+    for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
+ 
+    if(ADC_temp[int(cubechan_cen.Y())-1]<fADCCut || ADC_temp[int(cubechan_cen.X())-1]<fADCCut) continue;
+
+    // Check which one used for noise estimation
+    for(int i = 0; i < 4; i++){
+      // Not include cube outside the matrix
+      if(cubechan_bei[i].X()==-1){
+        cubely_bei[i] = 0;
+        continue;
+      }
+
+      // The left one would be used
+      if(cubechan_bei[i].X()==cubechan_cen.X()) noise_temp = ADC_temp[int(cubechan_bei[i].Y())-1];
+      else noise_temp = ADC_temp[int(cubechan_bei[i].X())-1];
+
+      noise_esti->Fill(noise_temp);
+      noise_ly->Fill(noise_temp);
+    }
+
+  }
+
+  // Fit the noise value distribution with a Gaussian function
+  double mean_temp = noise_esti->GetMean();
+  double rms_temp = noise_esti->GetRMS();
+  noise_esti->Fit("gaus","","",mean_temp-rms_temp,mean_temp+rms_temp);
+  TF1 *fit_func = noise_esti->GetFunction("gaus");
+  double noise_mean = fit_func->GetParameter(1);
+  double noise_sigma = fit_func->GetParameter(2);
+
+  // Estimate the crosstalk fraction
+  // Second loop over all events 
   for(int n = 0; n < n_event; n++){
 
     data->GetMppc(n,swap);
@@ -194,16 +264,22 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       if(cubechan_bei[i].X()==-1) continue;
 
       if(cubechan_bei[i].X()==cubechan_cen.X()){
+        if(ADC_temp[int(cubechan_cen.Y())-1]>fADCUppCut) continue;
+
         //cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - (cubely_bei[0] + cubely_bei[1]);
-        cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - 2 * cubely_bei[i];
-        xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
+        //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.Y())-1] - 2 * cubely_bei[i] + noise_mean) * 100;
+        xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.Y())-1] - noise_mean) * 100;
+        xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(ADC_temp[int(cubechan_cen.Y())-1]);
       }
       else{
+        if(ADC_temp[int(cubechan_cen.X())-1]>fADCUppCut) continue;
+  
         //cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - (cubely_bei[2] + cubely_bei[3]);
-        cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - 2 * cubely_bei[i];
-        xtalk_rate->Fill(cubely_bei[i]/cubely_cen*100);
+        //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.X())-1] - 2 * cubely_bei[i] + noise_mean) * 100;
+        xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.X())-1] - noise_mean) * 100;
+        xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(ADC_temp[int(cubechan_cen.X())-1]);
       }
@@ -215,7 +291,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
   double range_upp = xtalk_rate->GetMean() + 4 * xtalk_rate->GetRMS();
   xtalk_rate->Fit("landau","","",range_low,range_upp);
-  TF1 *fit_func = xtalk_rate->GetFunction("landau");
+  fit_func = xtalk_rate->GetFunction("landau");
   double mean = fit_func->GetParameter(1);
   double rms = fit_func->GetParameter(2);
 
@@ -232,10 +308,13 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Scale the histograms
   double scale_trkcube = trkcube_ly->Integral();
   double scale_beicube = beicube_ly->Integral();
+  double scale_noise = noise_ly->Integral();
   trkcube_ly->Scale(1./scale_trkcube);
   beicube_ly->Scale(1./scale_beicube);
+  noise_ly->Scale(1./scale_noise);
   trkcube_ly->GetYaxis()->SetRangeUser(1e-3,1);
   beicube_ly->GetYaxis()->SetRangeUser(1e-3,1);
+  noise_ly->GetYaxis()->SetRangeUser(1e-3,1);
 
   // Draw the plots
   gStyle->SetOptStat(0);
@@ -263,19 +342,38 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   trkcube_ly->SetLineColor(kRed);
   beicube_ly->SetLineWidth(2);
   beicube_ly->SetLineColor(kBlue);
+  noise_ly->SetLineWidth(2);
+  noise_ly->SetLineColor(kOrange-7);
   
   trkcube_ly->Draw("hist");
   beicube_ly->Draw("hist same");
-  TLegend *lg2 = new TLegend(0.35,0.7,0.65,0.87);
+  noise_ly->Draw("hist same");
+  TLegend *lg2 = new TLegend(0.35,0.6,0.7,0.87);
   lg2->SetLineWidth(0);
   lg2->SetFillStyle(0);
   lg2->AddEntry(trkcube_ly,"Track channel","l");
   lg2->AddEntry(beicube_ly,"Crosstalk channel","l");
+  lg2->AddEntry(noise_ly,"Noise level","l");
   lg2->Draw("same");
   gPad->SetLogy();
   gPad->SetGridx();
   gPad->SetGridy();
   c2->Update();
+
+  TCanvas *c3 = new TCanvas("noise_esti","noise_esti",700,600);
+  c3->SetLeftMargin(0.15);
+  c3->cd();
+  noise_esti->SetLineWidth(2);
+  noise_esti->SetLineColor(kBlue);
+  noise_esti->Draw("hist");
+
+  name.Form("Gauss fit:");
+  pl_name->DrawTextNDC(0.55,0.68,name);
+  name.Form("Mean = %f ADC",noise_mean);
+  pl_mean->DrawTextNDC(0.55,0.61,name);
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c3->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
   TString type;
@@ -291,6 +389,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   suffix = prefix + type + "cubely_comp.png";
   c2->SaveAs(suffix);
+
+  suffix = prefix + type + "cross_esti.png";
+  c3->SaveAs(suffix);
 
   // Save the plots into output file
   TString fout_name;
@@ -313,10 +414,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
  
   c1->Write();
   c2->Write();
+  c3->Write();
 
   xtalk_rate->Write();
   trkcube_ly->Write();
   beicube_ly->Write();
+  noise_esti->Write();
 
   fout->Close();
 
@@ -976,7 +1079,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   
   for(int i = 0; i < fChanNum; i++){
     name.Form("MPPC_ly_chan%i",i+1);
-    MPPC_ly[i] = new TH1D(name,name,80,500,4500);
+    MPPC_ly[i] = new TH1D(name,name,80,0,4500);
     MPPC_ly[i]->GetXaxis()->SetTitle("ADC");
     MPPC_ly[i]->GetYaxis()->SetTitle("Number of events / bin");
     MPPC_ly[i]->SetTitle(name);
@@ -991,9 +1094,9 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
  
     ADC_temp = GetChannelADC(data,file_option);
 
-    passtag = EventCosmicCut(ADC_temp,ADC_cut);
+    //passtag = EventCosmicCut(ADC_temp,ADC_cut);
 
-    if(passtag==false) continue;  
+    //if(passtag==false) continue;  
 
     for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(ADC_temp[i]); 
 
@@ -1006,31 +1109,31 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c1->Divide(3,3);
   c1->cd(1);
   MPPC_ly[13]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(2);
   MPPC_ly[4]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(3);
   MPPC_ly[12]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(4);
   MPPC_ly[2]->Draw();
-  //gPad->SetLogy(); 
+  gPad->SetLogy(); 
   c1->cd(5);
   MPPC_ly[11]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(6);
   MPPC_ly[1]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(7);
   MPPC_ly[10]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(8);
   MPPC_ly[0]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->cd(9);
   MPPC_ly[9]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c1->Update();
 
   // MPPC channel face 2 + 4
@@ -1038,31 +1141,31 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c2->Divide(3,3);
   c2->cd(1);
   MPPC_ly[8]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(2);
   MPPC_ly[17]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(3);
   MPPC_ly[7]->Draw(); 
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(4);
   MPPC_ly[16]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(5);
   MPPC_ly[6]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(6);
   MPPC_ly[15]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(7);
   MPPC_ly[5]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(8);
   MPPC_ly[14]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->cd(9);
   MPPC_ly[4]->Draw();
-  //gPad->SetLogy();
+  gPad->SetLogy();
   c2->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
