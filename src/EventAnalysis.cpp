@@ -128,7 +128,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   TH1D *noise_esti[fChanNum];
   TString name;
   for(int i = 0; i < fChanNum; i++){
-    name.Form("noise_esti%i",i);
+    name.Form("channel%i_noise",i+1);
     noise_esti[i] = new TH1D(name,name,100,0,400);
     noise_esti[i]->GetXaxis()->SetTitle("Estimated noise level / ADC");
     noise_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
@@ -137,7 +137,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     noise_esti[i]->GetYaxis()->SetLabelSize(0.04);
     noise_esti[i]->GetYaxis()->SetTitleSize(0.04);
     noise_esti[i]->GetYaxis()->SetTitleOffset(1.4);
-    noise_esti[i]->SetTitle("");
+    noise_esti[i]->SetTitle(name);
+    noise_esti[i]->SetLineWidth(2);
+    noise_esti[i]->SetLineColor(kBlue);
   }
 
   // Estimate the noise level in order to subtract it
@@ -189,7 +191,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     // Method 2: estimate noise level per channel
     // Loop over each channel, if the channel satisfies requirement, then fill the noise histogram
     for(int i = 0; i < fChanNum; i++){
-
+ 
+      // Channel ADC smaller than cut
       if(ADC_temp[i]>ADC_cut) continue;
 
       // Get the channel number of nearby channels
@@ -317,11 +320,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
       if(cubechan_bei[i].X()==cubechan_cen.X()){
         cubely_bei[i] = ADC_temp[int(cubechan_bei[i].Y())-1];
-        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].Y())-1];
+        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].Y())-1]; // Estimate noise level per channel
       }
       else{
         cubely_bei[i] = ADC_temp[int(cubechan_bei[i].X())-1];
-        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].X())-1];
+        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].X())-1]; // Estimate noise level per channel
       }
     }
 
@@ -443,6 +446,70 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   gPad->SetGridy();
   c3->Update();*/
 
+  // Face 1 + 3
+  TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
+  c4->Divide(3,3);
+  c4->cd(1);
+  noise_esti[12]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(2);
+  noise_esti[3]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(3);
+  noise_esti[13]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(4);
+  noise_esti[2]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(5);
+  noise_esti[11]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(6);
+  noise_esti[1]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(7);
+  noise_esti[9]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(8);
+  noise_esti[0]->Draw("hist");
+  //gPad->SetLogy();
+  c4->cd(9);
+  noise_esti[10]->Draw("hist");
+  //gPad->SetLogy();
+  c4->Update();
+
+  // Face 2 + 4
+  TCanvas *c5 = new TCanvas("noise_yz","noise_yz",1200,1200);
+  c5->Divide(3,3);
+  c5->cd(1);
+  noise_esti[8]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(2);
+  noise_esti[17]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(3);
+  noise_esti[7]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(4);
+  noise_esti[15]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(5);
+  noise_esti[6]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(6);
+  noise_esti[16]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(7);
+  noise_esti[5]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(8);
+  noise_esti[14]->Draw("hist");
+  //gPad->SetLogy();
+  c5->cd(9);
+  noise_esti[4]->Draw("hist");
+  //gPad->SetLogy();
+  c5->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type;
   TString suffix;
@@ -460,6 +527,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   //suffix = prefix + type + "noise_esti.png";
   //c3->SaveAs(suffix);
+
+  suffix = prefix + type + "noise_xz.png";
+  c4->SaveAs(suffix);
+
+  suffix = prefix + type + "noise_yz.png";
+  c5->SaveAs(suffix);
 
   // Save the plots into output file
   TString fout_name;
@@ -483,6 +556,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c1->Write();
   c2->Write();
   //c3->Write();
+  c4->Write();
+  c5->Write();
 
   xtalk_rate->Write();
   trkcube_ly->Write();
