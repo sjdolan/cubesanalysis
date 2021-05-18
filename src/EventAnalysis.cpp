@@ -65,6 +65,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   }
   else if(file_option==4){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
+    //fin_name = "../../inputs/SpecialRun_SuperFGDCubes_07May2021.root";
     swap = true;
   }
 
@@ -548,6 +549,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   }
   else if(file_option==4){
     fout_name = "../../results/CrosstalkAnalysis_SFGDCubes_GluedFiber.root";
+    //fout_name = "../../results/ChanNoise_SFGDCubes_GluedFiber_May07.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
