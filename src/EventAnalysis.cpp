@@ -68,6 +68,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     //fin_name = "../../inputs/SpecialRun_SuperFGDCubes_07May2021.root";
     swap = true;
   }
+  else if(file_option==5){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber_Flip.root";
+    //fin_name = "../../inputs/CosmicMuon_GluedCubesTeflonBoxFlipped_19May2021.root";
+    swap = false;
+  }
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -519,6 +524,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
   else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
   else if(file_option==4) type = "sfgdcubes_gluedfiber/";
+  else if(file_option==5) type = "gluedcubes_withteflon_gluedfiber_flip/";
 
   suffix = prefix + type + "xtalk_rate.png";
   c1->SaveAs(suffix);
@@ -550,6 +556,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   else if(file_option==4){
     fout_name = "../../results/CrosstalkAnalysis_SFGDCubes_GluedFiber.root";
     //fout_name = "../../results/ChanNoise_SFGDCubes_GluedFiber_May07.root";
+  }
+  else if(file_option==5){
+    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_GluedFiber_Flip.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -1210,6 +1219,10 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
     fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
     swap = true;
   }
+  else if(file_option==5){
+    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber_Flip.root";
+    swap = false;
+  }
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -1323,6 +1336,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
   else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
   else if(file_option==4) type = "sfgdcubes_gluedfiber/";
+  else if(file_option==5) type = "gluedcubes_withteflon_gluedfiber_flip/";
 
   suffix = prefix + type + "MPPC2D_xz.png";
   c1->SaveAs(suffix);
@@ -1344,6 +1358,9 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   }
   else if(file_option==4){
     fout_name = "../../results/MPPCLightYield_SFGDCubes_GluedFiber.root";
+  }
+  else if(file_option==5){
+    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_GluedFiber_Flip.root";
   }
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
