@@ -48,22 +48,26 @@ const double fADCCut = 500; // units
 const double fADCUppCut = 4000; // units
 
 // File names array
-std::string fFileName[5] = {"GluedCubes_NoTeflon_NoGluedFiber",
+std::string fFileName[7] = {"GluedCubes_NoTeflon_NoGluedFiber",
 "GluedCubes_WithTeflon_NoGluedFiber",
 "GluedCubes_WithTeflon_GluedFiber",
 "SFGDCubes_GluedFiber",
-"GluedCubes_WithTeflon_GluedFiber_Flip"};
+"GluedCubes_WithTeflon_GluedFiber_Flip",
+"CosmicMuon_SuperFGD_NewPowerSupply_20May2021",
+"CalibrationScan_SuperFGD_run0"};
 
 // Path names array
-TString fPathName[5] = {"gluedcubes_noteflon_nogluedfiber",
+TString fPathName[7] = {"gluedcubes_noteflon_nogluedfiber",
 "gluedcubes_withteflon_nogluedfiber",
 "gluedcubes_withteflon_gluedfiber",
 "sfgdcubes_gluedfiber",
-"gluedcubes_withteflon_gluedfiber_flip"};
+"gluedcubes_withteflon_gluedfiber_flip",
+"sfgdcubes_gluedfiber_nowpowsupp",
+"sfgdcubes_gluedfiber_calibration"};
 
 // Swap index
 // Only SFGD cube data is swaped
-bool fSwap[5] = {false,false,false,true,false};
+bool fSwap[7] = {false,false,false,true,false,true,true};
 
 // ----------------------------------------
 
@@ -101,6 +105,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   TLorentzVector channel_near;
 
   // Create some histograms
+  // Overall crosstalk rate
   TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",60,0,30);
   xtalk_rate->GetXaxis()->SetTitle("Crosstalk fraction / %");
   xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
@@ -134,7 +139,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   noise_esti->GetYaxis()->SetTitleOffset(1.4);
   noise_esti->SetTitle("");*/
 
+  // Noise level per channel
   TH1D *noise_esti[fChanNum];
+  // Crosstalk level per channel
+  TH1D *xtalk_esti[fChanNum];
   TString name;
   for(int i = 0; i < fChanNum; i++){
     name.Form("channel%i_noise",i+1);
@@ -149,6 +157,19 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     noise_esti[i]->SetTitle(name);
     noise_esti[i]->SetLineWidth(2);
     noise_esti[i]->SetLineColor(kBlue);
+
+    name.Form("channel%i_xtalk",i+1);
+    xtalk_esti[i] = new TH1D(name,name,60,0,30);
+    xtalk_esti[i]->GetXaxis()->SetTitle("Crosstalk fraction / %");
+    xtalk_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
+    xtalk_esti[i]->GetXaxis()->SetLabelSize(0.04);
+    xtalk_esti[i]->GetXaxis()->SetTitleSize(0.04);
+    xtalk_esti[i]->GetYaxis()->SetLabelSize(0.04);
+    xtalk_esti[i]->GetYaxis()->SetTitleSize(0.04);
+    xtalk_esti[i]->GetYaxis()->SetTitleOffset(1.4);
+    xtalk_esti[i]->SetTitle(name);
+    xtalk_esti[i]->SetLineWidth(2);
+    xtalk_esti[i]->SetLineColor(kBlue);
   }
 
   // Estimate the noise level in order to subtract it
@@ -267,12 +288,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
     if(TMath::Abs(track_info[1])>1e-4) continue;
 
-    // Estimate the crosstalk around the middle layer cube
-    cubepos_cen.SetXYZ(cube_array[1].X(),cube_array[1].Y(),cube_array[1].Z());
-    cubepos_bei[0].SetXYZ(cube_array[1].X()-1,cube_array[1].Y(),cube_array[1].Z());
-    cubepos_bei[1].SetXYZ(cube_array[1].X()+1,cube_array[1].Y(),cube_array[1].Z());
-    cubepos_bei[2].SetXYZ(cube_array[1].X(),cube_array[1].Y()+1,cube_array[1].Z());
-    cubepos_bei[3].SetXYZ(cube_array[1].X(),cube_array[1].Y()-1,cube_array[1].Z());
+    // Estimate the crosstalk rate (loop over all 3 layers)
+    for(int layer = 0; layer < 3; layer++){
+
+    cubepos_cen.SetXYZ(cube_array[layer].X(),cube_array[layer].Y(),cube_array[layer].Z());
+    cubepos_bei[0].SetXYZ(cube_array[layer].X()-1,cube_array[layer].Y(),cube_array[layer].Z());
+    cubepos_bei[1].SetXYZ(cube_array[layer].X()+1,cube_array[layer].Y(),cube_array[layer].Z());
+    cubepos_bei[2].SetXYZ(cube_array[layer].X(),cube_array[layer].Y()+1,cube_array[layer].Z());
+    cubepos_bei[3].SetXYZ(cube_array[layer].X(),cube_array[layer].Y()-1,cube_array[layer].Z());
 
     cubechan_cen = GetCubeChannel(cubepos_cen);
     for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
@@ -352,6 +375,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(ADC_temp[int(cubechan_cen.Y())-1]);
+
+        // Crosstalk level per channel      
+        xtalk_esti[int(cubechan_cen.Y())-1]->Fill(xtalk_frac);
       }
       else{
         if(ADC_temp[int(cubechan_cen.X())-1]>fADCUppCut) continue;
@@ -363,7 +389,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(ADC_temp[int(cubechan_cen.X())-1]);
+
+        // Crosstalk level per channel
+        xtalk_esti[int(cubechan_cen.X())-1]->Fill(xtalk_frac);
       }
+    }
+
     }
 
   }
@@ -455,7 +486,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   gPad->SetGridy();
   c3->Update();*/
 
-  // Face 1 + 3
+  // Noise level
+  // MPPC Face 1 + 3
   TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
   c4->Divide(3,3);
   c4->cd(1);
@@ -487,7 +519,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //gPad->SetLogy();
   c4->Update();
 
-  // Face 2 + 4
+  // MPPC Face 2 + 4
   TCanvas *c5 = new TCanvas("noise_yz","noise_yz",1200,1200);
   c5->Divide(3,3);
   c5->cd(1);
@@ -519,6 +551,71 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //gPad->SetLogy();
   c5->Update();
 
+  // Crosstalk level
+  // Face 1 + 3
+  TCanvas *c6 = new TCanvas("xtalk_xz","xtalk_xz",1200,1200);
+  c6->Divide(3,3);
+  c6->cd(1);
+  xtalk_esti[12]->Draw();
+  //gPad->SetLogy();
+  c6->cd(2);
+  xtalk_esti[3]->Draw();
+  //gPad->SetLogy();
+  c6->cd(3);
+  xtalk_esti[13]->Draw();
+  //gPad->SetLogy();
+  c6->cd(4);
+  xtalk_esti[2]->Draw();
+  //gPad->SetLogy(); 
+  c6->cd(5);
+  xtalk_esti[11]->Draw();
+  //gPad->SetLogy();
+  c6->cd(6);
+  xtalk_esti[1]->Draw();
+  //gPad->SetLogy();
+  c6->cd(7);
+  xtalk_esti[9]->Draw();
+  //gPad->SetLogy();
+  c6->cd(8);
+  xtalk_esti[0]->Draw();
+  //gPad->SetLogy();
+  c6->cd(9);
+  xtalk_esti[10]->Draw();
+  //gPad->SetLogy();
+  c6->Update();
+
+  // Face 2 + 4
+  TCanvas *c7 = new TCanvas("xtalk_yz","xtalk_yz",1200,1200);
+  c7->Divide(3,3);
+  c7->cd(1);
+  xtalk_esti[8]->Draw();
+  //gPad->SetLogy();
+  c7->cd(2);
+  xtalk_esti[17]->Draw();
+  //gPad->SetLogy();
+  c7->cd(3);
+  xtalk_esti[7]->Draw(); 
+  //gPad->SetLogy();
+  c7->cd(4);
+  xtalk_esti[15]->Draw();
+  //gPad->SetLogy();
+  c7->cd(5);
+  xtalk_esti[6]->Draw();
+  //gPad->SetLogy();
+  c7->cd(6);
+  xtalk_esti[16]->Draw();
+  //gPad->SetLogy();
+  c7->cd(7);
+  xtalk_esti[5]->Draw();
+  //gPad->SetLogy();
+  c7->cd(8);
+  xtalk_esti[14]->Draw();
+  //gPad->SetLogy();
+  c7->cd(9);
+  xtalk_esti[4]->Draw();
+  //gPad->SetLogy();
+  c7->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = fPathName[file_option-1] + "/";
   TString suffix;
@@ -538,8 +635,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   suffix = prefix + type + "noise_yz.png";
   c5->SaveAs(suffix);
 
+  suffix = prefix + type + "xtalk_xz.png";
+  c6->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalk_yz.png";
+  c7->SaveAs(suffix);
+
   // Save the plots into output file
-  TString fout_name = "../../results/" + fFileName[file_option-1] + ".root";
+  TString fout_name = "../../results/CrosstalkAnalysis_" + fFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
@@ -549,13 +652,18 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //c3->Write();
   c4->Write();
   c5->Write();
+  c6->Write();
+  c7->Write();
 
   xtalk_rate->Write();
   trkcube_ly->Write();
   beicube_ly->Write();
   //noise_esti->Write();
 
-  for(int i = 0; i < fChanNum; i++) noise_esti[i]->Write();
+  for(int i = 0; i < fChanNum; i++){
+    noise_esti[i]->Write();
+    xtalk_esti[i]->Write();
+  }
 
   fout->Close();
 
@@ -1183,26 +1291,9 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   std::string fin_name;
   bool swap;
 
-  if(file_option==1){
-    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==2){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==3){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==4){
-    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
-    swap = true;
-  }
-  else if(file_option==5){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber_Flip.root";
-    swap = false;
-  }
+  // Input file name
+  fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
+  swap = fSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -1309,14 +1400,8 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c2->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
-  TString type;
+  TString type = fPathName[file_option-1] + "/";;
   TString suffix;
-
-  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
-  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
-  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
-  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
-  else if(file_option==5) type = "gluedcubes_withteflon_gluedfiber_flip/";
 
   suffix = prefix + type + "MPPC2D_xz.png";
   c1->SaveAs(suffix);
@@ -1325,23 +1410,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c2->SaveAs(suffix);
 
   // Save the plots into output file
-  TString fout_name;
-
-  if(file_option==1){
-    fout_name = "../../results/MPPCLightYield_GluedCubes_NoTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==2){
-    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==3){
-    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_GluedFiber.root";
-  }
-  else if(file_option==4){
-    fout_name = "../../results/MPPCLightYield_SFGDCubes_GluedFiber.root";
-  }
-  else if(file_option==5){
-    fout_name = "../../results/MPPCLightYield_GluedCubes_WithTeflon_GluedFiber_Flip.root";
-  }
+  TString fout_name = "../../results/MPPCLightYield_" + fFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
