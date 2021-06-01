@@ -38,6 +38,8 @@ bool EventCosmicCut(std::vector<double>,double);
 TVector3 GetCubeChannel(TVector3);
 TLorentzVector GetNearbyChannel(int);
 
+// ----------------------------------------
+
 // Global parameters
 const double fCubeSize = 10; // In mm
 const int fChanNum = 18; // MPPC channels
@@ -45,34 +47,35 @@ const int fChanNum = 18; // MPPC channels
 const double fADCCut = 500; // units
 const double fADCUppCut = 4000; // units
 
+// File names array
+std::string fFileName[5] = {"GluedCubes_NoTeflon_NoGluedFiber",
+"GluedCubes_WithTeflon_NoGluedFiber",
+"GluedCubes_WithTeflon_GluedFiber",
+"SFGDCubes_GluedFiber",
+"GluedCubes_WithTeflon_GluedFiber_Flip"};
+
+// Path names array
+TString fPathName[5] = {"gluedcubes_noteflon_nogluedfiber",
+"gluedcubes_withteflon_nogluedfiber",
+"gluedcubes_withteflon_gluedfiber",
+"sfgdcubes_gluedfiber",
+"gluedcubes_withteflon_gluedfiber_flip"};
+
+// Swap index
+// Only SFGD cube data is swaped
+bool fSwap[5] = {false,false,false,true,false};
+
+// ----------------------------------------
+
 // General cube crosstalk analysis
 void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
   bool swap;
 
-  if(file_option==1){
-    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==2){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==3){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==4){
-    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
-    //fin_name = "../../inputs/SpecialRun_SuperFGDCubes_07May2021.root";
-    swap = true;
-  }
-  else if(file_option==5){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber_Flip.root";
-    //fin_name = "../../inputs/CosmicMuon_GluedCubesTeflonBoxFlipped_19May2021.root";
-    swap = false;
-  }
+  // Set input file name
+  fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
+  swap = fSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -517,14 +520,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c5->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
-  TString type;
+  TString type = fPathName[file_option-1] + "/";
   TString suffix;
-
-  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
-  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
-  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
-  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
-  else if(file_option==5) type = "gluedcubes_withteflon_gluedfiber_flip/";
 
   suffix = prefix + type + "xtalk_rate.png";
   c1->SaveAs(suffix);
@@ -542,24 +539,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c5->SaveAs(suffix);
 
   // Save the plots into output file
-  TString fout_name;
-
-  if(file_option==1){
-    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_NoTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==2){
-    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==3){
-    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_GluedFiber.root";
-  }
-  else if(file_option==4){
-    fout_name = "../../results/CrosstalkAnalysis_SFGDCubes_GluedFiber.root";
-    //fout_name = "../../results/ChanNoise_SFGDCubes_GluedFiber_May07.root";
-  }
-  else if(file_option==5){
-    fout_name = "../../results/CrosstalkAnalysis_GluedCubes_WithTeflon_GluedFiber_Flip.root";
-  }
+  TString fout_name = "../../results/" + fFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
