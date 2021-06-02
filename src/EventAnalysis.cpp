@@ -263,12 +263,22 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   double mean_temp, rms_temp;
   double noise_mean[fChanNum];
+  double noise_rms[fChanNum];
   for(int i = 0; i < fChanNum; i++){
+
+    // Get overall mean and RMS
     mean_temp = noise_esti[i]->GetMean();
     rms_temp = noise_esti[i]->GetRMS();
-    noise_esti[i]->Fit("gaus","","",mean_temp-rms_temp,mean_temp+rms_temp);
-    TF1 *fit_func = noise_esti[i]->GetFunction("gaus");
-    noise_mean[i] = fit_func->GetParameter(1);
+
+    // Gaussian fit around the peak (not safe because sometimes double peak structure)
+    //noise_esti[i]->Fit("gaus","","",mean_temp-rms_temp,mean_temp+rms_temp);
+    //TF1 *fit_func = noise_esti[i]->GetFunction("gaus");
+    //noise_mean[i] = fit_func->GetParameter(1);
+    //noise_rms[i] = fit_func->GetParameter(2);
+
+    noise_mean[i] = mean_temp;
+    noise_rms[i] = rms_temp;
+
   }
 
   // Estimate the crosstalk fraction
@@ -486,134 +496,61 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   gPad->SetGridy();
   c3->Update();*/
 
+  // Drawing order array
+  int face13[9] = {12,3,13,2,11,1,9,0,10};
+  int face24[9] = {8,17,7,15,6,16,5,14,4};
+
   // Noise level
+  double st_left = 0.55;
+  double st_top = 0.7;
+  pl_mean->SetTextSize(0.04);
+  pl_rms->SetTextSize(0.04);
+ 
   // MPPC Face 1 + 3
   TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
   c4->Divide(3,3);
-  c4->cd(1);
-  noise_esti[12]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(2);
-  noise_esti[3]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(3);
-  noise_esti[13]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(4);
-  noise_esti[2]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(5);
-  noise_esti[11]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(6);
-  noise_esti[1]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(7);
-  noise_esti[9]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(8);
-  noise_esti[0]->Draw("hist");
-  //gPad->SetLogy();
-  c4->cd(9);
-  noise_esti[10]->Draw("hist");
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c4->cd(i+1);
+    noise_esti[face13[i]]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_mean[face13[i]]);
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_rms[face13[i]]);
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //gPad->SetLogy();
+  }
   c4->Update();
 
   // MPPC Face 2 + 4
   TCanvas *c5 = new TCanvas("noise_yz","noise_yz",1200,1200);
   c5->Divide(3,3);
-  c5->cd(1);
-  noise_esti[8]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(2);
-  noise_esti[17]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(3);
-  noise_esti[7]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(4);
-  noise_esti[15]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(5);
-  noise_esti[6]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(6);
-  noise_esti[16]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(7);
-  noise_esti[5]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(8);
-  noise_esti[14]->Draw("hist");
-  //gPad->SetLogy();
-  c5->cd(9);
-  noise_esti[4]->Draw("hist");
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c5->cd(i+1);
+    noise_esti[face24[i]]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_mean[face24[i]]);
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_rms[face24[i]]);
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //gPad->SetLogy();
+  }
   c5->Update();
 
   // Crosstalk level
   // Face 1 + 3
   TCanvas *c6 = new TCanvas("xtalk_xz","xtalk_xz",1200,1200);
   c6->Divide(3,3);
-  c6->cd(1);
-  xtalk_esti[12]->Draw();
-  //gPad->SetLogy();
-  c6->cd(2);
-  xtalk_esti[3]->Draw();
-  //gPad->SetLogy();
-  c6->cd(3);
-  xtalk_esti[13]->Draw();
-  //gPad->SetLogy();
-  c6->cd(4);
-  xtalk_esti[2]->Draw();
-  //gPad->SetLogy(); 
-  c6->cd(5);
-  xtalk_esti[11]->Draw();
-  //gPad->SetLogy();
-  c6->cd(6);
-  xtalk_esti[1]->Draw();
-  //gPad->SetLogy();
-  c6->cd(7);
-  xtalk_esti[9]->Draw();
-  //gPad->SetLogy();
-  c6->cd(8);
-  xtalk_esti[0]->Draw();
-  //gPad->SetLogy();
-  c6->cd(9);
-  xtalk_esti[10]->Draw();
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c6->cd(i+1);
+    xtalk_esti[face13[i]]->Draw("hist");
+  }
   c6->Update();
-
+  
   // Face 2 + 4
   TCanvas *c7 = new TCanvas("xtalk_yz","xtalk_yz",1200,1200);
   c7->Divide(3,3);
-  c7->cd(1);
-  xtalk_esti[8]->Draw();
-  //gPad->SetLogy();
-  c7->cd(2);
-  xtalk_esti[17]->Draw();
-  //gPad->SetLogy();
-  c7->cd(3);
-  xtalk_esti[7]->Draw(); 
-  //gPad->SetLogy();
-  c7->cd(4);
-  xtalk_esti[15]->Draw();
-  //gPad->SetLogy();
-  c7->cd(5);
-  xtalk_esti[6]->Draw();
-  //gPad->SetLogy();
-  c7->cd(6);
-  xtalk_esti[16]->Draw();
-  //gPad->SetLogy();
-  c7->cd(7);
-  xtalk_esti[5]->Draw();
-  //gPad->SetLogy();
-  c7->cd(8);
-  xtalk_esti[14]->Draw();
-  //gPad->SetLogy();
-  c7->cd(9);
-  xtalk_esti[4]->Draw();
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c7->cd(i+1);
+    xtalk_esti[face24[i]]->Draw("hist");
+  }
   c7->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
@@ -1335,68 +1272,28 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   gStyle->SetOptStat(0);
 
+  // Drawing order array
+  int face13[9] = {12,3,13,2,11,1,9,0,10};
+  int face24[9] = {8,17,7,15,6,16,5,14,4};
+
   // MPPC channel face 1 + 3
   TCanvas *c1 = new TCanvas("MPPC2D_xz","MPPC2D_xz",1200,1200);
   c1->Divide(3,3);
-  c1->cd(1);
-  MPPC_ly[12]->Draw();
-  gPad->SetLogy();
-  c1->cd(2);
-  MPPC_ly[3]->Draw();
-  gPad->SetLogy();
-  c1->cd(3);
-  MPPC_ly[13]->Draw();
-  gPad->SetLogy();
-  c1->cd(4);
-  MPPC_ly[2]->Draw();
-  gPad->SetLogy(); 
-  c1->cd(5);
-  MPPC_ly[11]->Draw();
-  gPad->SetLogy();
-  c1->cd(6);
-  MPPC_ly[1]->Draw();
-  gPad->SetLogy();
-  c1->cd(7);
-  MPPC_ly[9]->Draw();
-  gPad->SetLogy();
-  c1->cd(8);
-  MPPC_ly[0]->Draw();
-  gPad->SetLogy();
-  c1->cd(9);
-  MPPC_ly[10]->Draw();
-  gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c1->cd(i+1);
+    MPPC_ly[face13[i]]->Draw();
+    gPad->SetLogy();
+  }
   c1->Update();
 
   // MPPC channel face 2 + 4
   TCanvas *c2 = new TCanvas("MPPC2D_yz","MPPC2D_yz",1200,1200);
   c2->Divide(3,3);
-  c2->cd(1);
-  MPPC_ly[8]->Draw();
-  gPad->SetLogy();
-  c2->cd(2);
-  MPPC_ly[17]->Draw();
-  gPad->SetLogy();
-  c2->cd(3);
-  MPPC_ly[7]->Draw(); 
-  gPad->SetLogy();
-  c2->cd(4);
-  MPPC_ly[15]->Draw();
-  gPad->SetLogy();
-  c2->cd(5);
-  MPPC_ly[6]->Draw();
-  gPad->SetLogy();
-  c2->cd(6);
-  MPPC_ly[16]->Draw();
-  gPad->SetLogy();
-  c2->cd(7);
-  MPPC_ly[5]->Draw();
-  gPad->SetLogy();
-  c2->cd(8);
-  MPPC_ly[14]->Draw();
-  gPad->SetLogy();
-  c2->cd(9);
-  MPPC_ly[4]->Draw();
-  gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c2->cd(i+1);
+    MPPC_ly[face24[i]]->Draw();
+    gPad->SetLogy();
+  }
   c2->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
