@@ -1330,9 +1330,10 @@ TLorentzVector GetNearbyChannel(int i){
 
   TLorentzVector chan_num;
 
+  // Old board
   // Order: X = left, Y = up, Z = right, T = down
   // Face 1 + 3
-  if(i==14) chan_num.SetXYZT(4,-1,-1,2);
+  /*if(i==14) chan_num.SetXYZT(4,-1,-1,2);
   else if(i==4) chan_num.SetXYZT(13,-1,14,2);
   else if(i==13) chan_num.SetXYZT(-1,-1,4,3);
   else if(i==3) chan_num.SetXYZT(-1,13,12,10);
@@ -1352,6 +1353,31 @@ TLorentzVector GetNearbyChannel(int i){
   else if(i==15) chan_num.SetXYZT(6,7,5,-1);
   else if(i==5) chan_num.SetXYZT(15,17,-1,-1);
   // Not matched
+  else chan_num.SetXYZT(-1,-1,-1,-1);*/
+  
+  // New board
+  // Order: X = left, Y = up, Z = right, T = down
+  // Face 1 + 3
+  if(i==4) chan_num.SetXYZT(-1,-1,2,17);
+  else if(i==2) chan_num.SetXYZT(4,-1,6,19);
+  else if(i==6) chan_num.SetXYZT(2,-1,-1,15);
+  else if(i==17) chan_num.SetXYZT(-1,4,19,3);
+  else if(i==19) chan_num.SetXYZT(17,2,15,1);
+  else if(i==15) chan_num.SetXYZT(19,6,-1,5);
+  else if(i==3) chan_num.SetXYZT(-1,17,1,-1);
+  else if(i==1) chan_num.SetXYZT(3,19,5,-1);
+  else if(i==5) chan_num.SetXYZT(1,15,-1,-1);
+  // Face 2 + 4
+  else if(i==12) chan_num.SetXYZT(-1,-1,14,23);
+  else if(i==14) chan_num.SetXYZT(12,-1,8,21);
+  else if(i==8) chan_num.SetXYZT(14,-1,-1,25);
+  else if(i==23) chan_num.SetXYZT(-1,12,21,11);
+  else if(i==21) chan_num.SetXYZT(23,14,25,13);
+  else if(i==25) chan_num.SetXYZT(21,8,-1,7);
+  else if(i==11) chan_num.SetXYZT(-1,23,13,-1);
+  else if(i==13) chan_num.SetXYZT(11,21,7,-1);
+  else if(i==7) chan_num.SetXYZT(13,25,-1,-1);
+  // Not matched
   else chan_num.SetXYZT(-1,-1,-1,-1);
 
   return chan_num;
@@ -1367,8 +1393,9 @@ TVector3 GetCubeChannel(TVector3 cube){
   int y = int(cube.Y());
   int z = int(cube.Z());
 
+  // Old board
   // Bottom layer
-  if(x==0 && y==0 && z==0) chan_vec.SetXYZ(10,6,0);
+  /*if(x==0 && y==0 && z==0) chan_vec.SetXYZ(10,6,0);
   else if(x==1 && y==0 && z==0) chan_vec.SetXYZ(1,6,0);
   else if(x==2 && y==0 && z==0) chan_vec.SetXYZ(11,6,0);
   else if(x==0 && y==1 && z==0) chan_vec.SetXYZ(10,15,0);
@@ -1397,6 +1424,40 @@ TVector3 GetCubeChannel(TVector3 cube){
   else if(x==0 && y==2 && z==2) chan_vec.SetXYZ(13,8,0);
   else if(x==1 && y==2 && z==2) chan_vec.SetXYZ(4,8,0);
   else if(x==2 && y==2 && z==2) chan_vec.SetXYZ(14,8,0);
+  // other cases
+  else chan_vec.SetXYZ(-1,-1,-1);*/
+
+  // New board
+  // Bottom layer
+  if(x==0 && y==0 && z==0) chan_vec.SetXYZ(3,11,0);
+  else if(x==1 && y==0 && z==0) chan_vec.SetXYZ(1,11,0);
+  else if(x==2 && y==0 && z==0) chan_vec.SetXYZ(5,11,0);
+  else if(x==0 && y==1 && z==0) chan_vec.SetXYZ(3,13,0);
+  else if(x==1 && y==1 && z==0) chan_vec.SetXYZ(1,13,0);
+  else if(x==2 && y==1 && z==0) chan_vec.SetXYZ(5,13,0);
+  else if(x==0 && y==2 && z==0) chan_vec.SetXYZ(3,7,0);
+  else if(x==1 && y==2 && z==0) chan_vec.SetXYZ(1,7,0);
+  else if(x==2 && y==2 && z==0) chan_vec.SetXYZ(5,7,0);
+  // Middle layer
+  else if(x==0 && y==0 && z==1) chan_vec.SetXYZ(17,23,0);
+  else if(x==1 && y==0 && z==1) chan_vec.SetXYZ(19,23,0); 
+  else if(x==2 && y==0 && z==1) chan_vec.SetXYZ(15,23,0);
+  else if(x==0 && y==1 && z==1) chan_vec.SetXYZ(17,21,0);
+  else if(x==1 && y==1 && z==1) chan_vec.SetXYZ(19,21,0);
+  else if(x==2 && y==1 && z==1) chan_vec.SetXYZ(15,21,0);
+  else if(x==0 && y==2 && z==1) chan_vec.SetXYZ(17,25,0);
+  else if(x==1 && y==2 && z==1) chan_vec.SetXYZ(19,25,0);
+  else if(x==2 && y==2 && z==1) chan_vec.SetXYZ(15,25,0);
+  // Top layer
+  else if(x==0 && y==0 && z==2) chan_vec.SetXYZ(4,12,0);
+  else if(x==1 && y==0 && z==2) chan_vec.SetXYZ(2,12,0);
+  else if(x==2 && y==0 && z==2) chan_vec.SetXYZ(6,12,0);
+  else if(x==0 && y==1 && z==2) chan_vec.SetXYZ(4,14,0);
+  else if(x==1 && y==1 && z==2) chan_vec.SetXYZ(2,14,0);
+  else if(x==2 && y==1 && z==2) chan_vec.SetXYZ(6,14,0);
+  else if(x==0 && y==2 && z==2) chan_vec.SetXYZ(4,8,0);
+  else if(x==1 && y==2 && z==2) chan_vec.SetXYZ(2,8,0);
+  else if(x==2 && y==2 && z==2) chan_vec.SetXYZ(6,8,0);
   // other cases
   else chan_vec.SetXYZ(-1,-1,-1);
 
@@ -1437,9 +1498,10 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
   std::vector<TLorentzVector> cube_array;
 
   // In order to get 3D event, at each layer only consider the highest ADC on each plane
-  
+
+  // Old board
   // Top layer (XZ plane)
-  ADC_max = 0;
+  /*ADC_max = 0;
   if(ADC_temp[13]>=ADC_max){
     ADC_max = ADC_temp[13];
     index_xz = 14;
@@ -1471,14 +1533,51 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
     ADC_max = ADC_temp[7];
     index_yz = 8;
     ADC_yz = ADC_temp[7];
+  }*/
+ 
+  // New board 
+  // Top layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[3]>=ADC_max){
+    ADC_max = ADC_temp[3];
+    index_xz = 4;
+    ADC_xz = ADC_temp[3];
+  }
+  if(ADC_temp[1]>=ADC_max){
+    ADC_max = ADC_temp[1];
+    index_xz = 2;
+    ADC_xz = ADC_temp[1];
+  }
+  if(ADC_temp[5]>=ADC_max){
+    ADC_max = ADC_temp[5];
+    index_xz = 6;
+    ADC_xz = ADC_temp[5];
+  }
+  // Top layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[11]>=ADC_max){
+    ADC_max = ADC_temp[11];
+    index_yz = 12;
+    ADC_yz = ADC_temp[11];
+  }
+  if(ADC_temp[13]>=ADC_max){
+    ADC_max = ADC_temp[13];
+    index_yz = 14;
+    ADC_yz = ADC_temp[13];
+  }
+  if(ADC_temp[7]>=ADC_max){
+    ADC_max = ADC_temp[7];
+    index_yz = 8;
+    ADC_yz = ADC_temp[7];
   }
  
   cube_pos = GetMatchCubePos(index_xz,index_yz);
   cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
   cube_array.push_back(cube_temp);
 
+  // Old board
   // Middle layer (XZ plane)
-  ADC_max = 0;
+  /*ADC_max = 0;
   if(ADC_temp[2]>=ADC_max){
     ADC_max = ADC_temp[2];
     index_xz = 3;
@@ -1510,14 +1609,51 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
     ADC_max = ADC_temp[15];
     index_yz = 16;
     ADC_yz = ADC_temp[15];
+  }*/
+
+  // New board
+  // Middle layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[18]>=ADC_max){
+    ADC_max = ADC_temp[18];
+    index_xz = 19;
+    ADC_xz = ADC_temp[18];
+  }
+  if(ADC_temp[16]>=ADC_max){
+    ADC_max = ADC_temp[16];
+    index_xz = 17;
+    ADC_xz = ADC_temp[16];
+  }
+  if(ADC_temp[14]>=ADC_max){
+    ADC_max = ADC_temp[14];
+    index_xz = 15;
+    ADC_xz = ADC_temp[14];
+  }
+  // Middle layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[22]>=ADC_max){
+    ADC_max = ADC_temp[22];
+    index_yz = 23;
+    ADC_yz = ADC_temp[22];
+  }
+  if(ADC_temp[20]>=ADC_max){
+    ADC_max = ADC_temp[20];
+    index_yz = 21;
+    ADC_yz = ADC_temp[20];
+  }
+  if(ADC_temp[24]>=ADC_max){
+    ADC_max = ADC_temp[24];
+    index_yz = 25;
+    ADC_yz = ADC_temp[24];
   }
 
   cube_pos = GetMatchCubePos(index_xz,index_yz);
   cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
   cube_array.push_back(cube_temp);
 
+  // Old board
   // Bottom layer (XZ plane)
-  ADC_max = 0;
+  /*ADC_max = 0;
   if(ADC_temp[10]>=ADC_max){
     ADC_max = ADC_temp[10];
     index_xz = 11;
@@ -1550,6 +1686,43 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
     ADC_max = ADC_temp[4];
     index_yz = 5;
     ADC_yz = ADC_temp[4];
+  }*/
+
+  // New board
+  // Bottom layer (XZ plane)
+  ADC_max = 0;
+  if(ADC_temp[2]>=ADC_max){
+    ADC_max = ADC_temp[2];
+    index_xz = 3;
+    ADC_xz = ADC_temp[2];
+  }
+  if(ADC_temp[0]>=ADC_max){
+    ADC_max = ADC_temp[0];
+    index_xz = 1;
+    ADC_xz = ADC_temp[0];
+  }
+  if(ADC_temp[4]>=ADC_max){
+    ADC_max = ADC_temp[4];
+    index_xz = 5;
+    ADC_xz = ADC_temp[4];
+  }
+
+  // Bottom layer (YZ plane)
+  ADC_max = 0;
+  if(ADC_temp[10]>=ADC_max){
+    ADC_max = ADC_temp[10];
+    index_yz = 11;
+    ADC_yz = ADC_temp[10];
+  }
+  if(ADC_temp[13]>=ADC_max){
+    ADC_max = ADC_temp[13];
+    index_yz = 13;
+    ADC_yz = ADC_temp[13];
+  }
+  if(ADC_temp[6]>=ADC_max){
+    ADC_max = ADC_temp[6];
+    index_yz = 7;
+    ADC_yz = ADC_temp[6];
   }
 
   cube_pos = GetMatchCubePos(index_xz,index_yz);
@@ -1801,8 +1974,9 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
 
     if(isHit==false) continue;
 
+    // Old board
     // Top layer (XZ plane)
-    if(i==14 || i==4 || i==13) n_topxzhit += 1;
+    /*if(i==14 || i==4 || i==13) n_topxzhit += 1;
     // Top layer (YZ plane)
     else if(i==9 || i==18 || i==8) n_topyzhit += 1;
     // Bottom layer (XZ plane)
@@ -1812,7 +1986,21 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
     // Middle layer (XZ plane)
     else if(i==3 || i==7 || i==2) n_midxzhit += 1;
     // Middle layer (YZ plane)   
-    else if(i==17 || i==12 || i==16) n_midyzhit += 1;
+    else if(i==17 || i==12 || i==16) n_midyzhit += 1;*/
+    
+    // New board
+    // Top layer (XZ plane)
+    if(i==4 || i==2 || i==6) n_topxzhit += 1;
+    // Top layer (YZ plane)
+    else if(i==12 || i==14 || i==8) n_topyzhit += 1;
+    // Bottom layer (XZ plane)
+    else if(i==17 || i==19 || i==15) n_botxzhit += 1;
+    // Bottom layer (YZ plane)
+    else if(i==23 || i==21 || i==25) n_botyzhit += 1;
+    // Middle layer (XZ plane)
+    else if(i==3 || i==1 || i==5) n_midxzhit += 1;
+    // Middle layer (YZ plane)   
+    else if(i==11 || i==13 || i==7) n_midyzhit += 1;
    
   }
 
@@ -1832,8 +2020,9 @@ TVector3 GetMPPC2DPos(int MPPCChan){
 
   TVector3 pos;
 
+  // Old board
   // Face 1
-  if(MPPCChan==1) pos.SetXYZ(1,-1,0);
+  /*if(MPPCChan==1) pos.SetXYZ(1,-1,0);
   else if(MPPCChan==2) pos.SetXYZ(2,-1,1);
   else if(MPPCChan==3) pos.SetXYZ(0,-1,1);
   else if(MPPCChan==4) pos.SetXYZ(1,-1,2);
@@ -1855,6 +2044,29 @@ TVector3 GetMPPC2DPos(int MPPCChan){
   else if(MPPCChan==17) pos.SetXYZ(-1,2,1);
   else if(MPPCChan==18) pos.SetXYZ(-1,1,2); 
   // No position available
+  else pos.SetXYZ(-1,-1,-1);*/
+  
+  // Face 1 + 3
+  if(MPPCChan==3) pos.SetXYZ(0,-1,0);
+  else if(MPPCChan==1) pos.SetXYZ(1,-1,0);
+  else if(MPPCChan==5) pos.SetXYZ(2,-1,0);
+  else if(MPPCChan==17) pos.SetXYZ(0,-1,1);
+  else if(MPPCChan==19) pos.SetXYZ(1,-1,1);
+  else if(MPPCChan==15) pos.SetXYZ(2,-1,1);
+  else if(MPPCChan==4) pos.SetXYZ(0,-1,2);
+  else if(MPPCChan==2) pos.SetXYZ(1,-1,2);
+  else if(MPPCChan==6) pos.SetXYZ(2,-1,2);
+  // Face 2 + 4
+  else if(MPPCChan==11) pos.SetXYZ(-1,0,0);
+  else if(MPPCChan==13) pos.SetXYZ(-1,1,0);
+  else if(MPPCChan==7) pos.SetXYZ(-1,2,0);
+  else if(MPPCChan==23) pos.SetXYZ(-1,0,1);
+  else if(MPPCChan==21) pos.SetXYZ(-1,1,1);
+  else if(MPPCChan==25) pos.SetXYZ(-1,2,1);
+  else if(MPPCChan==12) pos.SetXYZ(-1,0,2);
+  else if(MPPCChan==14) pos.SetXYZ(-1,1,2);
+  else if(MPPCChan==8) pos.SetXYZ(-1,2,2); 
+  // No position available
   else pos.SetXYZ(-1,-1,-1);
 
   return pos;
@@ -1866,8 +2078,9 @@ TVector3 GetMatchCubePos(int x, int y){
 
   TVector3 pos;
 
+  // Old board
   // Bottom layer
-  if(CheckIndexMatch(x,y,6,10)==true) pos.SetXYZ(0,0,0);
+  /*if(CheckIndexMatch(x,y,6,10)==true) pos.SetXYZ(0,0,0);
   else if(CheckIndexMatch(x,y,6,1)==true) pos.SetXYZ(1,0,0);
   else if(CheckIndexMatch(x,y,6,11)==true) pos.SetXYZ(2,0,0);
   else if(CheckIndexMatch(x,y,15,10)==true) pos.SetXYZ(0,1,0);
@@ -1896,6 +2109,39 @@ TVector3 GetMatchCubePos(int x, int y){
   else if(CheckIndexMatch(x,y,8,13)==true) pos.SetXYZ(0,2,2);
   else if(CheckIndexMatch(x,y,8,4)==true) pos.SetXYZ(1,2,2);
   else if(CheckIndexMatch(x,y,8,14)==true) pos.SetXYZ(2,2,2);
+  // Not matched
+  else pos.SetXYZ(-1,-1,-1);*/
+
+  // Bottom layer
+  if(CheckIndexMatch(x,y,11,3)==true) pos.SetXYZ(0,0,0);
+  else if(CheckIndexMatch(x,y,11,1)==true) pos.SetXYZ(1,0,0);
+  else if(CheckIndexMatch(x,y,11,5)==true) pos.SetXYZ(2,0,0);
+  else if(CheckIndexMatch(x,y,13,3)==true) pos.SetXYZ(0,1,0);
+  else if(CheckIndexMatch(x,y,13,1)==true) pos.SetXYZ(1,1,0);
+  else if(CheckIndexMatch(x,y,13,5)==true) pos.SetXYZ(2,1,0);
+  else if(CheckIndexMatch(x,y,7,3)==true) pos.SetXYZ(0,2,0);
+  else if(CheckIndexMatch(x,y,7,1)==true) pos.SetXYZ(1,2,0);
+  else if(CheckIndexMatch(x,y,7,5)==true) pos.SetXYZ(2,2,0);
+  // Middle layer
+  else if(CheckIndexMatch(x,y,23,17)==true) pos.SetXYZ(0,0,1);
+  else if(CheckIndexMatch(x,y,23,19)==true) pos.SetXYZ(1,0,1);
+  else if(CheckIndexMatch(x,y,23,15)==true) pos.SetXYZ(2,0,1);
+  else if(CheckIndexMatch(x,y,21,17)==true) pos.SetXYZ(0,1,1);
+  else if(CheckIndexMatch(x,y,21,19)==true) pos.SetXYZ(1,1,1);
+  else if(CheckIndexMatch(x,y,21,15)==true) pos.SetXYZ(2,1,1);
+  else if(CheckIndexMatch(x,y,25,17)==true) pos.SetXYZ(0,2,1);
+  else if(CheckIndexMatch(x,y,25,19)==true) pos.SetXYZ(1,2,1);
+  else if(CheckIndexMatch(x,y,25,15)==true) pos.SetXYZ(2,2,1);
+  // Top layer
+  else if(CheckIndexMatch(x,y,12,4)==true) pos.SetXYZ(0,0,2);
+  else if(CheckIndexMatch(x,y,12,2)==true) pos.SetXYZ(1,0,2);
+  else if(CheckIndexMatch(x,y,12,6)==true) pos.SetXYZ(2,0,2);
+  else if(CheckIndexMatch(x,y,14,4)==true) pos.SetXYZ(0,1,2);
+  else if(CheckIndexMatch(x,y,14,2)==true) pos.SetXYZ(1,1,2);
+  else if(CheckIndexMatch(x,y,14,6)==true) pos.SetXYZ(2,1,2);
+  else if(CheckIndexMatch(x,y,8,4)==true) pos.SetXYZ(0,2,2);
+  else if(CheckIndexMatch(x,y,8,2)==true) pos.SetXYZ(1,2,2);
+  else if(CheckIndexMatch(x,y,8,6)==true) pos.SetXYZ(2,2,2);
   // Not matched
   else pos.SetXYZ(-1,-1,-1);
   
