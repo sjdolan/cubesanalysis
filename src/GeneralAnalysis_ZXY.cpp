@@ -27,8 +27,9 @@ R__LOAD_LIBRARY(TreeManager_C.so);
 #include <TLeaf.h>
 #include <TMath.h>
 
-// Function prototypes
-std::vector<double> GetChannelADC(Mppc*,int);
+// ----------------------------------------
+
+// Auxiliary function prototypes
 TVector3 GetMPPC2DPos(int);
 TVector3 GetMatchCubePos(int,int);
 std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double>,double);
@@ -37,37 +38,55 @@ bool CheckIndexMatch(int,int,int,int);
 bool EventCosmicCut(std::vector<double>,double);
 TVector3 GetCubeChannel(TVector3);
 TLorentzVector GetNearbyChannel(int);
+int ReturnIndex(int);
 
 // ----------------------------------------
 
 // Global parameters
+// Cube size
 const double fCubeSize = 10; // In mm
+// MPPC channel numbers
 const int fChanNum = 18; // MPPC channels
+const int fChanTotNum = 32; // Total MPPC channels
 // The ADC cut, currently for glued cubes (> 500 units) and for SFGD cubes (> 1000 units)
 const double fADCCut = 500; // units
+// Maximum ADC cut, currently chosen to be 4000 ADC
 const double fADCUppCut = 4000; // units
 
+// ----------------------------------------
+
 // File names array
-std::string fFileName[7] = {"GluedCubes_NoTeflon_NoGluedFiber",
-"GluedCubes_WithTeflon_NoGluedFiber",
-"GluedCubes_WithTeflon_GluedFiber",
-"SFGDCubes_GluedFiber",
-"GluedCubes_WithTeflon_GluedFiber_Flip",
-"CosmicMuon_SuperFGD_NewPowerSupply_20May2021",
-"CalibrationScan_SuperFGD_run0"};
+std::string fFileName[3] = {"glued_cubes/GluedCubes_OldBoard",
+"sfgd_cubes/SFGDCubes_OldBoard",
+"sfgd_cubes/SFGDCubes_NewBoard"};
+
+// Output file names array
+std::string fOutFileName[3] = {"GluedCubes_OldBoard",
+"SFGDCubes_OldBoard",
+"SFGDCubes_NewBoard"};
 
 // Path names array
-TString fPathName[7] = {"gluedcubes_noteflon_nogluedfiber",
-"gluedcubes_withteflon_nogluedfiber",
-"gluedcubes_withteflon_gluedfiber",
-"sfgdcubes_gluedfiber",
-"gluedcubes_withteflon_gluedfiber_flip",
-"sfgdcubes_gluedfiber_nowpowsupp",
-"sfgdcubes_gluedfiber_calibration"};
+TString fPathName[3] = {"gluedcubes_oldboard",
+"sfgdcubes_oldboard",
+"sfgdcubes_newboard"};
 
 // Swap index
-// Only SFGD cube data is swaped
-bool fSwap[7] = {false,false,false,true,false,true,true};
+// Only SFGD cube data (old board) is swaped
+bool fSwap[3] = {false,true,false};
+
+// Channel mapping choice, for new board, the channel is different from old board
+// 1 = old board, 2 = new board
+int fChanMapChoice;
+
+// Drawing order array
+// First index = 0 (old board), 1 (new board)
+int fFace13[2][9] = {{13,4,14,3,12,2,10,1,11},{4,2,6,17,19,15,3,1,5}};
+int fFace24[2][9] = {{9,18,8,16,7,17,6,15,5},{12,14,8,23,21,25,11,13,7}};
+
+// Channel order
+// First index = 0 (old board), 1 (new board)
+int fChanOrder[2][18] = {{13,4,14,3,12,2,10,1,11,9,18,8,16,7,17,6,15,5},
+{4,2,6,17,19,15,3,1,5,12,14,8,23,21,25,11,13,7}};
 
 // ----------------------------------------
 
@@ -85,6 +104,15 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   Mppc *data = filereader.tmCD();
 
   int n_event = data->GetInputTree()->GetEntries();
+  
+  std::cout << "Total number of events: " << n_event << std::endl;
+
+  // Channel mapping choice
+  if(file_option==1 || file_option==2) fChanMapChoice = 1;
+  else if(file_option==3) fChanMapChoice = 2;
+  
+  int chan_order[fChanNum];
+  for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
 
   // Create some variables
   std::vector<double> ADC_temp;
@@ -103,6 +131,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double xtalk_frac;
   double noise_temp;
   TLorentzVector channel_near;
+  int index_temp;
 
   // Create some histograms
   // Overall crosstalk rate
@@ -145,7 +174,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   TH1D *xtalk_esti[fChanNum];
   TString name;
   for(int i = 0; i < fChanNum; i++){
-    name.Form("channel%i_noise",i+1);
+    name.Form("channel%i_noise",chan_order[i]);
     noise_esti[i] = new TH1D(name,name,100,0,400);
     noise_esti[i]->GetXaxis()->SetTitle("Estimated noise level / ADC");
     noise_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
@@ -158,7 +187,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     noise_esti[i]->SetLineWidth(2);
     noise_esti[i]->SetLineColor(kBlue);
 
-    name.Form("channel%i_xtalk",i+1);
+    name.Form("channel%i_xtalk",chan_order[i]);
     xtalk_esti[i] = new TH1D(name,name,60,0,30);
     xtalk_esti[i]->GetXaxis()->SetTitle("Crosstalk fraction / %");
     xtalk_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
@@ -173,12 +202,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   }
 
   // Estimate the noise level in order to subtract it
+  std::cout << "Start to estimate noise level" << std::endl;
   // First loop over all events
   for(int n = 0; n < n_event; n++){
 
     data->GetMppc(n,swap);
 
-    ADC_temp = GetChannelADC(data,file_option);
+    ADC_temp.clear();
+    for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
     // Method 1: use an overall noise level
     /*pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
@@ -226,21 +257,21 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       if(ADC_temp[i]>ADC_cut) continue;
 
       // Get the channel number of nearby channels
-      channel_near = GetNearbyChannel(i+1);
+      channel_near = GetNearbyChannel(chan_order[i]);
 
       // All nearby channel ADCs should be smaller than cut value
       bool nearby_cut = true;
       if(channel_near.X()!=-1){
-        if(ADC_temp[channel_near.X()-1]>ADC_cut) nearby_cut = false;
+        if(data->ADC(channel_near.X()-1)>ADC_cut) nearby_cut = false;
       }
       if(channel_near.Y()!=-1){
-        if(ADC_temp[channel_near.Y()-1]>ADC_cut) nearby_cut = false;
+        if(data->ADC(channel_near.Y()-1)>ADC_cut) nearby_cut = false;
       }
       if(channel_near.Z()!=-1){
-        if(ADC_temp[channel_near.Z()-1]>ADC_cut) nearby_cut = false;
+        if(data->ADC(channel_near.Z()-1)>ADC_cut) nearby_cut = false;
       }
       if(channel_near.T()!=-1){
-        if(ADC_temp[channel_near.T()-1]>ADC_cut) nearby_cut = false;
+        if(data->ADC(channel_near.T()-1)>ADC_cut) nearby_cut = false;
       }
 
       if(nearby_cut==false) continue;
@@ -280,15 +311,19 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     noise_rms[i] = rms_temp;
 
   }
+  std::cout << "Noise level estimation done" << std::endl;
 
   // Estimate the crosstalk fraction
+  std::cout << "Start to estimate crosstalk rate" << std::endl;
   // Second loop over all events 
   for(int n = 0; n < n_event; n++){
 
     data->GetMppc(n,swap);
 
-    ADC_temp = GetChannelADC(data,file_option);
+    ADC_temp.clear();
+    for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
+    // Pass cosmic cut
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
     if(pass_tag==false) continue;
  
@@ -310,7 +345,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     cubechan_cen = GetCubeChannel(cubepos_cen);
     for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
  
-    if(ADC_temp[int(cubechan_cen.Y())-1]<fADCCut || ADC_temp[int(cubechan_cen.X())-1]<fADCCut) continue;
+    if(data->ADC(int(cubechan_cen.Y())-1)<fADCCut || data->ADC(int(cubechan_cen.X())-1)<fADCCut) continue;
   
     // Check how many nearby cubes in each side (X direction or Y direction)
     nx = 0; ny = 0;
@@ -361,12 +396,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       } 
 
       if(cubechan_bei[i].X()==cubechan_cen.X()){
-        cubely_bei[i] = ADC_temp[int(cubechan_bei[i].Y())-1];
-        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].Y())-1]; // Estimate noise level per channel
+        cubely_bei[i] = data->ADC(int(cubechan_bei[i].Y())-1);
+        index_temp = ReturnIndex(int(cubechan_bei[i].Y()));
+        cubenoise_bei[i] = noise_mean[index_temp]; // Estimate noise level per channel
       }
       else{
-        cubely_bei[i] = ADC_temp[int(cubechan_bei[i].X())-1];
-        cubenoise_bei[i] = noise_mean[int(cubechan_bei[i].X())-1]; // Estimate noise level per channel
+        cubely_bei[i] = data->ADC(int(cubechan_bei[i].X())-1);
+        index_temp = ReturnIndex(int(cubechan_bei[i].X()));
+        cubenoise_bei[i] = noise_mean[index_temp]; // Estimate noise level per channel
       }
     }
 
@@ -376,38 +413,42 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       if(cubechan_bei[i].X()==-1) continue;
 
       if(cubechan_bei[i].X()==cubechan_cen.X()){
-        if(ADC_temp[int(cubechan_cen.Y())-1]>fADCUppCut) continue;
+        if(data->ADC(int(cubechan_cen.Y())-1)>fADCUppCut) continue;
 
         //cubely_cen = ADC_temp[int(cubechan_cen.Y())-1] - (cubely_bei[0] + cubely_bei[1]);
         //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.Y())-1] - 2 * cubely_bei[i] + noise_mean) * 100;
         //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.Y())-1] - noise_mean) * 100;
-        xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (ADC_temp[int(cubechan_cen.Y())-1] - noise_mean[int(cubechan_cen.Y())-1]) * 100;
+        index_temp = ReturnIndex(int(cubechan_cen.Y()));
+        xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) * 100;
         xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
-        trkcube_ly->Fill(ADC_temp[int(cubechan_cen.Y())-1]);
+        trkcube_ly->Fill(data->ADC(int(cubechan_cen.Y())-1));
 
         // Crosstalk level per channel      
-        xtalk_esti[int(cubechan_cen.Y())-1]->Fill(xtalk_frac);
+        xtalk_esti[index_temp]->Fill(xtalk_frac);
       }
       else{
-        if(ADC_temp[int(cubechan_cen.X())-1]>fADCUppCut) continue;
+        if(data->ADC(int(cubechan_cen.X())-1)>fADCUppCut) continue;
   
         //cubely_cen = ADC_temp[int(cubechan_cen.X())-1] - (cubely_bei[2] + cubely_bei[3]);
         //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.X())-1] - 2 * cubely_bei[i] + noise_mean) * 100;
         //xtalk_frac = (cubely_bei[i] - noise_mean) / (ADC_temp[int(cubechan_cen.X())-1] - noise_mean) * 100;
-        xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (ADC_temp[int(cubechan_cen.X())-1] - noise_mean[int(cubechan_cen.X())-1]) * 100;
+        index_temp = ReturnIndex(int(cubechan_cen.X()));
+        xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) * 100;
         xtalk_rate->Fill(xtalk_frac);
         beicube_ly->Fill(cubely_bei[i]);
-        trkcube_ly->Fill(ADC_temp[int(cubechan_cen.X())-1]);
+        trkcube_ly->Fill(data->ADC(int(cubechan_cen.X())-1));
 
         // Crosstalk level per channel
-        xtalk_esti[int(cubechan_cen.X())-1]->Fill(xtalk_frac);
+        xtalk_esti[index_temp]->Fill(xtalk_frac);
       }
     }
 
-    }
+    } // End of three layer loop
 
   }
+
+  std::cout << "Crosstalk rate estimation done" << std::endl;
 
   // Fit the crosstalk distribution with Landau function
   double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
@@ -497,9 +538,6 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c3->Update();*/
 
   // Drawing order array
-  int face13[9] = {12,3,13,2,11,1,9,0,10};
-  int face24[9] = {8,17,7,15,6,16,5,14,4};
-
   // Noise level
   double st_left = 0.55;
   double st_top = 0.7;
@@ -511,10 +549,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c4->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
-    noise_esti[face13[i]]->Draw("hist");
-    name.Form("Overall mean = %f ADC",noise_mean[face13[i]]);
+    noise_esti[i]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_mean[i]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
-    name.Form("Overall RMS = %f ADC",noise_rms[face13[i]]);
+    name.Form("Overall RMS = %f ADC",noise_rms[i]);
     pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
     //gPad->SetLogy();
   }
@@ -525,10 +563,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c5->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c5->cd(i+1);
-    noise_esti[face24[i]]->Draw("hist");
-    name.Form("Overall mean = %f ADC",noise_mean[face24[i]]);
+    noise_esti[i+9]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_mean[i+9]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
-    name.Form("Overall RMS = %f ADC",noise_rms[face24[i]]);
+    name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
     pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
     //gPad->SetLogy();
   }
@@ -540,7 +578,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c6->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c6->cd(i+1);
-    xtalk_esti[face13[i]]->Draw("hist");
+    xtalk_esti[i]->Draw("hist");
   }
   c6->Update();
   
@@ -549,7 +587,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c7->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c7->cd(i+1);
-    xtalk_esti[face24[i]]->Draw("hist");
+    xtalk_esti[i+9]->Draw("hist");
   }
   c7->Update();
 
@@ -579,7 +617,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c7->SaveAs(suffix);
 
   // Save the plots into output file
-  TString fout_name = "../../results/CrosstalkAnalysis_" + fFileName[file_option-1] + ".root";
+  TString fout_name = "../../results/CrosstalkAnalysis_" + fOutFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
@@ -738,7 +776,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     data->GetMppc(n,swap);
 
     // Check whether the event passed the cut
-    ADC_temp = GetChannelADC(data,file_option);
+    //ADC_temp = GetChannelADC(data,file_option);
 
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
@@ -1097,7 +1135,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
     data->GetMppc(rand_event,swap);
 
     // Check whether this event passes the cosmic cut 
-    ADC_temp = GetChannelADC(data,file_option);
+    //ADC_temp = GetChannelADC(data,file_option);
 
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
@@ -1237,8 +1275,15 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   int n_event = data->GetInputTree()->GetEntries();
 
+  // Channel mapping choice
+  if(file_option==1 || file_option==2) fChanMapChoice = 1;
+  else if(file_option==3) fChanMapChoice = 2;
+
+  int chan_order[fChanNum];
+  for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
+
   // Create some variables
-  std::vector<double> ADC_temp;
+  //std::vector<double> ADC_temp;
   bool passtag;
 
   // Light yield distributions for each channel 0 - 17
@@ -1246,7 +1291,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   TH1D *MPPC_ly[fChanNum];
   
   for(int i = 0; i < fChanNum; i++){
-    name.Form("MPPC_ly_chan%i",i+1);
+    name.Form("MPPC_ly_chan%i",chan_order[i]);
     MPPC_ly[i] = new TH1D(name,name,80,0,4500);
     MPPC_ly[i]->GetXaxis()->SetTitle("ADC");
     MPPC_ly[i]->GetYaxis()->SetTitle("Number of events / bin");
@@ -1260,28 +1305,25 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
     data->GetMppc(n,swap);
  
-    ADC_temp = GetChannelADC(data,file_option);
+    //ADC_temp = GetChannelADC(data,file_option);
 
     //passtag = EventCosmicCut(ADC_temp,ADC_cut);
 
     //if(passtag==false) continue;  
 
-    for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(ADC_temp[i]); 
+    for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(data->ADC(chan_order[i]-1)); 
 
   }
 
   gStyle->SetOptStat(0);
 
   // Drawing order array
-  int face13[9] = {12,3,13,2,11,1,9,0,10};
-  int face24[9] = {8,17,7,15,6,16,5,14,4};
-
   // MPPC channel face 1 + 3
   TCanvas *c1 = new TCanvas("MPPC2D_xz","MPPC2D_xz",1200,1200);
   c1->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c1->cd(i+1);
-    MPPC_ly[face13[i]]->Draw();
+    MPPC_ly[i]->Draw();
     gPad->SetLogy();
   }
   c1->Update();
@@ -1291,7 +1333,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c2->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c2->cd(i+1);
-    MPPC_ly[face24[i]]->Draw();
+    MPPC_ly[i+9]->Draw();
     gPad->SetLogy();
   }
   c2->Update();
@@ -1307,7 +1349,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   c2->SaveAs(suffix);
 
   // Save the plots into output file
-  TString fout_name = "../../results/MPPCLightYield_" + fFileName[file_option-1] + ".root";
+  TString fout_name = "../../results/MPPCLightYield_" + fOutFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
@@ -1322,7 +1364,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 } 
 
 // ------------------------------------------------
-// Below are auxiliary functions
+// Auxiliary functions used in GeneralAnalysis_ZXY.cpp
 // ------------------------------------------------
 
 // Get the channel number of nearby channels (do not consider diagonal channels)
@@ -1331,54 +1373,57 @@ TLorentzVector GetNearbyChannel(int i){
   TLorentzVector chan_num;
 
   // Old board
-  // Order: X = left, Y = up, Z = right, T = down
-  // Face 1 + 3
-  /*if(i==14) chan_num.SetXYZT(4,-1,-1,2);
-  else if(i==4) chan_num.SetXYZT(13,-1,14,2);
-  else if(i==13) chan_num.SetXYZT(-1,-1,4,3);
-  else if(i==3) chan_num.SetXYZT(-1,13,12,10);
-  else if(i==12) chan_num.SetXYZT(3,4,2,1);
-  else if(i==2) chan_num.SetXYZT(12,14,-1,11);
-  else if(i==11) chan_num.SetXYZT(1,2,-1,-1);
-  else if(i==1) chan_num.SetXYZT(10,12,11,-1);
-  else if(i==10) chan_num.SetXYZT(-1,3,1,-1);
-  // Face 2 + 4
-  else if(i==9) chan_num.SetXYZT(-1,-1,18,16);
-  else if(i==18) chan_num.SetXYZT(9,-1,8,7);
-  else if(i==8) chan_num.SetXYZT(18,-1,-1,17);
-  else if(i==17) chan_num.SetXYZT(7,8,-1,-1);
-  else if(i==7) chan_num.SetXYZT(16,18,17,15);
-  else if(i==16) chan_num.SetXYZT(-1,9,7,6);
-  else if(i==6) chan_num.SetXYZT(-1,16,15,-1);
-  else if(i==15) chan_num.SetXYZT(6,7,5,-1);
-  else if(i==5) chan_num.SetXYZT(15,17,-1,-1);
-  // Not matched
-  else chan_num.SetXYZT(-1,-1,-1,-1);*/
-  
+  if(fChanMapChoice==1){
+    // Order: X = left, Y = up, Z = right, T = down
+    // Face 1 + 3
+    if(i==14) chan_num.SetXYZT(4,-1,-1,2);
+    else if(i==4) chan_num.SetXYZT(13,-1,14,2);
+    else if(i==13) chan_num.SetXYZT(-1,-1,4,3);
+    else if(i==3) chan_num.SetXYZT(-1,13,12,10);
+    else if(i==12) chan_num.SetXYZT(3,4,2,1);
+    else if(i==2) chan_num.SetXYZT(12,14,-1,11);
+    else if(i==11) chan_num.SetXYZT(1,2,-1,-1);
+    else if(i==1) chan_num.SetXYZT(10,12,11,-1);
+    else if(i==10) chan_num.SetXYZT(-1,3,1,-1);
+    // Face 2 + 4
+    else if(i==9) chan_num.SetXYZT(-1,-1,18,16);
+    else if(i==18) chan_num.SetXYZT(9,-1,8,7);
+    else if(i==8) chan_num.SetXYZT(18,-1,-1,17);
+    else if(i==17) chan_num.SetXYZT(7,8,-1,-1);
+    else if(i==7) chan_num.SetXYZT(16,18,17,15);
+    else if(i==16) chan_num.SetXYZT(-1,9,7,6);
+    else if(i==6) chan_num.SetXYZT(-1,16,15,-1);
+    else if(i==15) chan_num.SetXYZT(6,7,5,-1);
+    else if(i==5) chan_num.SetXYZT(15,17,-1,-1);
+    // Not matched
+    else chan_num.SetXYZT(-1,-1,-1,-1);
+  }
   // New board
-  // Order: X = left, Y = up, Z = right, T = down
-  // Face 1 + 3
-  if(i==4) chan_num.SetXYZT(-1,-1,2,17);
-  else if(i==2) chan_num.SetXYZT(4,-1,6,19);
-  else if(i==6) chan_num.SetXYZT(2,-1,-1,15);
-  else if(i==17) chan_num.SetXYZT(-1,4,19,3);
-  else if(i==19) chan_num.SetXYZT(17,2,15,1);
-  else if(i==15) chan_num.SetXYZT(19,6,-1,5);
-  else if(i==3) chan_num.SetXYZT(-1,17,1,-1);
-  else if(i==1) chan_num.SetXYZT(3,19,5,-1);
-  else if(i==5) chan_num.SetXYZT(1,15,-1,-1);
-  // Face 2 + 4
-  else if(i==12) chan_num.SetXYZT(-1,-1,14,23);
-  else if(i==14) chan_num.SetXYZT(12,-1,8,21);
-  else if(i==8) chan_num.SetXYZT(14,-1,-1,25);
-  else if(i==23) chan_num.SetXYZT(-1,12,21,11);
-  else if(i==21) chan_num.SetXYZT(23,14,25,13);
-  else if(i==25) chan_num.SetXYZT(21,8,-1,7);
-  else if(i==11) chan_num.SetXYZT(-1,23,13,-1);
-  else if(i==13) chan_num.SetXYZT(11,21,7,-1);
-  else if(i==7) chan_num.SetXYZT(13,25,-1,-1);
-  // Not matched
-  else chan_num.SetXYZT(-1,-1,-1,-1);
+  else if(fChanMapChoice==2){
+    // Order: X = left, Y = up, Z = right, T = down
+    // Face 1 + 3
+    if(i==4) chan_num.SetXYZT(-1,-1,2,17);
+    else if(i==2) chan_num.SetXYZT(4,-1,6,19);
+    else if(i==6) chan_num.SetXYZT(2,-1,-1,15);
+    else if(i==17) chan_num.SetXYZT(-1,4,19,3);
+    else if(i==19) chan_num.SetXYZT(17,2,15,1);
+    else if(i==15) chan_num.SetXYZT(19,6,-1,5);
+    else if(i==3) chan_num.SetXYZT(-1,17,1,-1);
+    else if(i==1) chan_num.SetXYZT(3,19,5,-1);
+    else if(i==5) chan_num.SetXYZT(1,15,-1,-1);
+    // Face 2 + 4
+    else if(i==12) chan_num.SetXYZT(-1,-1,14,23);
+    else if(i==14) chan_num.SetXYZT(12,-1,8,21);
+    else if(i==8) chan_num.SetXYZT(14,-1,-1,25);
+    else if(i==23) chan_num.SetXYZT(-1,12,21,11);
+    else if(i==21) chan_num.SetXYZT(23,14,25,13);
+    else if(i==25) chan_num.SetXYZT(21,8,-1,7);
+    else if(i==11) chan_num.SetXYZT(-1,23,13,-1);
+    else if(i==13) chan_num.SetXYZT(11,21,7,-1);
+    else if(i==7) chan_num.SetXYZT(13,25,-1,-1);
+    // Not matched
+    else chan_num.SetXYZT(-1,-1,-1,-1);
+  }
 
   return chan_num;
 
@@ -1394,8 +1439,9 @@ TVector3 GetCubeChannel(TVector3 cube){
   int z = int(cube.Z());
 
   // Old board
+  if(fChanMapChoice==1){
   // Bottom layer
-  /*if(x==0 && y==0 && z==0) chan_vec.SetXYZ(10,6,0);
+  if(x==0 && y==0 && z==0) chan_vec.SetXYZ(10,6,0);
   else if(x==1 && y==0 && z==0) chan_vec.SetXYZ(1,6,0);
   else if(x==2 && y==0 && z==0) chan_vec.SetXYZ(11,6,0);
   else if(x==0 && y==1 && z==0) chan_vec.SetXYZ(10,15,0);
@@ -1425,9 +1471,10 @@ TVector3 GetCubeChannel(TVector3 cube){
   else if(x==1 && y==2 && z==2) chan_vec.SetXYZ(4,8,0);
   else if(x==2 && y==2 && z==2) chan_vec.SetXYZ(14,8,0);
   // other cases
-  else chan_vec.SetXYZ(-1,-1,-1);*/
-
+  else chan_vec.SetXYZ(-1,-1,-1);
+  }
   // New board
+  else if(fChanMapChoice==2){
   // Bottom layer
   if(x==0 && y==0 && z==0) chan_vec.SetXYZ(3,11,0);
   else if(x==1 && y==0 && z==0) chan_vec.SetXYZ(1,11,0);
@@ -1460,29 +1507,9 @@ TVector3 GetCubeChannel(TVector3 cube){
   else if(x==2 && y==2 && z==2) chan_vec.SetXYZ(6,8,0);
   // other cases
   else chan_vec.SetXYZ(-1,-1,-1);
-
-  return chan_vec;
-
-}
-
-// Get a vector containing ADC from each channel
-std::vector<double> GetChannelADC(Mppc *input, int file_option){
-
-  std::vector<double> ADC_temp;
-
-  for(int i = 0; i < fChanNum; i++){
-
-    //if(file_option==4){
-    //  if(i==8) ADC_temp.push_back(input->ADC(18));
-    //  else ADC_temp.push_back(input->ADC(i));
-    //}
-    //else ADC_temp.push_back(input->ADC(i));
-
-    ADC_temp.push_back(input->ADC(i));
-
   }
 
-  return ADC_temp;
+  return chan_vec;
 
 }
 
@@ -1499,230 +1526,69 @@ std::vector<TLorentzVector> Get3DMatchedCubes(std::vector<double> ADC_temp, doub
 
   // In order to get 3D event, at each layer only consider the highest ADC on each plane
 
-  // Old board
   // Top layer (XZ plane)
-  /*ADC_max = 0;
-  if(ADC_temp[13]>=ADC_max){
-    ADC_max = ADC_temp[13];
-    index_xz = 14;
-    ADC_xz = ADC_temp[13];
-  }
-  if(ADC_temp[3]>=ADC_max){
-    ADC_max = ADC_temp[3];
-    index_xz = 4;
-    ADC_xz = ADC_temp[3];
-  }
-  if(ADC_temp[12]>=ADC_max){
-    ADC_max = ADC_temp[12];
-    index_xz = 13;
-    ADC_xz = ADC_temp[12];
+  ADC_max = 0;
+  for(int i = 0; i <= 2; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_xz = fChanOrder[fChanMapChoice-1][i];
+      ADC_xz = ADC_temp[i];
+    }
   }
   // Top layer (YZ plane)
   ADC_max = 0;
-  if(ADC_temp[8]>=ADC_max){
-    ADC_max = ADC_temp[8];
-    index_yz = 9;
-    ADC_yz = ADC_temp[8];
-  }
-  if(ADC_temp[17]>=ADC_max){
-    ADC_max = ADC_temp[17];
-    index_yz = 18;
-    ADC_yz = ADC_temp[17];
-  }
-  if(ADC_temp[7]>=ADC_max){
-    ADC_max = ADC_temp[7];
-    index_yz = 8;
-    ADC_yz = ADC_temp[7];
-  }*/
- 
-  // New board 
-  // Top layer (XZ plane)
-  ADC_max = 0;
-  if(ADC_temp[3]>=ADC_max){
-    ADC_max = ADC_temp[3];
-    index_xz = 4;
-    ADC_xz = ADC_temp[3];
-  }
-  if(ADC_temp[1]>=ADC_max){
-    ADC_max = ADC_temp[1];
-    index_xz = 2;
-    ADC_xz = ADC_temp[1];
-  }
-  if(ADC_temp[5]>=ADC_max){
-    ADC_max = ADC_temp[5];
-    index_xz = 6;
-    ADC_xz = ADC_temp[5];
-  }
-  // Top layer (YZ plane)
-  ADC_max = 0;
-  if(ADC_temp[11]>=ADC_max){
-    ADC_max = ADC_temp[11];
-    index_yz = 12;
-    ADC_yz = ADC_temp[11];
-  }
-  if(ADC_temp[13]>=ADC_max){
-    ADC_max = ADC_temp[13];
-    index_yz = 14;
-    ADC_yz = ADC_temp[13];
-  }
-  if(ADC_temp[7]>=ADC_max){
-    ADC_max = ADC_temp[7];
-    index_yz = 8;
-    ADC_yz = ADC_temp[7];
-  }
- 
-  cube_pos = GetMatchCubePos(index_xz,index_yz);
-  cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
-  cube_array.push_back(cube_temp);
-
-  // Old board
-  // Middle layer (XZ plane)
-  /*ADC_max = 0;
-  if(ADC_temp[2]>=ADC_max){
-    ADC_max = ADC_temp[2];
-    index_xz = 3;
-    ADC_xz = ADC_temp[2];
-  }
-  if(ADC_temp[11]>=ADC_max){
-    ADC_max = ADC_temp[11];
-    index_xz = 12;
-    ADC_xz = ADC_temp[11];
-  }
-  if(ADC_temp[1]>=ADC_max){
-    ADC_max = ADC_temp[1];
-    index_xz = 2;
-    ADC_xz = ADC_temp[1];
-  }
-  // Middle layer (YZ plane)
-  ADC_max = 0;
-  if(ADC_temp[16]>=ADC_max){
-    ADC_max = ADC_temp[16];
-    index_yz = 17;
-    ADC_yz = ADC_temp[16];
-  }
-  if(ADC_temp[6]>=ADC_max){
-    ADC_max = ADC_temp[6];
-    index_yz = 7;
-    ADC_yz = ADC_temp[6];
-  }
-  if(ADC_temp[15]>=ADC_max){
-    ADC_max = ADC_temp[15];
-    index_yz = 16;
-    ADC_yz = ADC_temp[15];
-  }*/
-
-  // New board
-  // Middle layer (XZ plane)
-  ADC_max = 0;
-  if(ADC_temp[18]>=ADC_max){
-    ADC_max = ADC_temp[18];
-    index_xz = 19;
-    ADC_xz = ADC_temp[18];
-  }
-  if(ADC_temp[16]>=ADC_max){
-    ADC_max = ADC_temp[16];
-    index_xz = 17;
-    ADC_xz = ADC_temp[16];
-  }
-  if(ADC_temp[14]>=ADC_max){
-    ADC_max = ADC_temp[14];
-    index_xz = 15;
-    ADC_xz = ADC_temp[14];
-  }
-  // Middle layer (YZ plane)
-  ADC_max = 0;
-  if(ADC_temp[22]>=ADC_max){
-    ADC_max = ADC_temp[22];
-    index_yz = 23;
-    ADC_yz = ADC_temp[22];
-  }
-  if(ADC_temp[20]>=ADC_max){
-    ADC_max = ADC_temp[20];
-    index_yz = 21;
-    ADC_yz = ADC_temp[20];
-  }
-  if(ADC_temp[24]>=ADC_max){
-    ADC_max = ADC_temp[24];
-    index_yz = 25;
-    ADC_yz = ADC_temp[24];
+  for(int i = 9; i <= 11; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_yz = fChanOrder[fChanMapChoice-1][i];
+      ADC_yz = ADC_temp[i];
+    }
   }
 
   cube_pos = GetMatchCubePos(index_xz,index_yz);
   cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
   cube_array.push_back(cube_temp);
 
-  // Old board
-  // Bottom layer (XZ plane)
-  /*ADC_max = 0;
-  if(ADC_temp[10]>=ADC_max){
-    ADC_max = ADC_temp[10];
-    index_xz = 11;
-    ADC_xz = ADC_temp[10];
-  }
-  if(ADC_temp[0]>=ADC_max){
-    ADC_max = ADC_temp[0];
-    index_xz = 1;
-    ADC_xz = ADC_temp[0];
-  }
-  if(ADC_temp[9]>=ADC_max){
-    ADC_max = ADC_temp[9];
-    index_xz = 10;
-    ADC_xz = ADC_temp[9];
-  }
-
-  // Bottom layer (YZ plane)
+  // Middle layer (XZ plane)
   ADC_max = 0;
-  if(ADC_temp[5]>=ADC_max){
-    ADC_max = ADC_temp[5];
-    index_yz = 6;
-    ADC_yz = ADC_temp[5];
+  for(int i = 3; i <= 5; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_xz = fChanOrder[fChanMapChoice-1][i];
+      ADC_xz = ADC_temp[i];
+    }
   }
-  if(ADC_temp[14]>=ADC_max){
-    ADC_max = ADC_temp[14];
-    index_yz = 15;
-    ADC_yz = ADC_temp[14];
+  // Middle layer (YZ plane)
+  ADC_max = 0;
+  for(int i = 12; i <= 14; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_yz = fChanOrder[fChanMapChoice-1][i];
+      ADC_yz = ADC_temp[i];
+    }
   }
-  if(ADC_temp[4]>=ADC_max){
-    ADC_max = ADC_temp[4];
-    index_yz = 5;
-    ADC_yz = ADC_temp[4];
-  }*/
 
-  // New board
+  cube_pos = GetMatchCubePos(index_xz,index_yz);
+  cube_temp.SetXYZT(cube_pos.X(),cube_pos.Y(),cube_pos.Z(),ADC_xz+ADC_yz);
+  cube_array.push_back(cube_temp);
+
   // Bottom layer (XZ plane)
   ADC_max = 0;
-  if(ADC_temp[2]>=ADC_max){
-    ADC_max = ADC_temp[2];
-    index_xz = 3;
-    ADC_xz = ADC_temp[2];
+  for(int i = 6; i <= 8; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_xz = fChanOrder[fChanMapChoice-1][i];
+      ADC_xz = ADC_temp[i];
+    }
   }
-  if(ADC_temp[0]>=ADC_max){
-    ADC_max = ADC_temp[0];
-    index_xz = 1;
-    ADC_xz = ADC_temp[0];
-  }
-  if(ADC_temp[4]>=ADC_max){
-    ADC_max = ADC_temp[4];
-    index_xz = 5;
-    ADC_xz = ADC_temp[4];
-  }
-
   // Bottom layer (YZ plane)
   ADC_max = 0;
-  if(ADC_temp[10]>=ADC_max){
-    ADC_max = ADC_temp[10];
-    index_yz = 11;
-    ADC_yz = ADC_temp[10];
-  }
-  if(ADC_temp[13]>=ADC_max){
-    ADC_max = ADC_temp[13];
-    index_yz = 13;
-    ADC_yz = ADC_temp[13];
-  }
-  if(ADC_temp[6]>=ADC_max){
-    ADC_max = ADC_temp[6];
-    index_yz = 7;
-    ADC_yz = ADC_temp[6];
+  for(int i = 15; i <= 17; i++){
+    if(ADC_temp[i]>=ADC_max){
+      ADC_max = ADC_temp[i];
+      index_yz = fChanOrder[fChanMapChoice-1][i];
+      ADC_yz = ADC_temp[i];
+    }
   }
 
   cube_pos = GetMatchCubePos(index_xz,index_yz);
@@ -1975,32 +1841,35 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
     if(isHit==false) continue;
 
     // Old board
+    if(fChanMapChoice==1){
     // Top layer (XZ plane)
-    /*if(i==14 || i==4 || i==13) n_topxzhit += 1;
+    if(fChanOrder[0][i]==14 || fChanOrder[0][i]==4 || fChanOrder[0][i]==13) n_topxzhit += 1;
     // Top layer (YZ plane)
-    else if(i==9 || i==18 || i==8) n_topyzhit += 1;
+    else if(fChanOrder[0][i]==9 || fChanOrder[0][i]==18 || fChanOrder[0][i]==8) n_topyzhit += 1;
     // Bottom layer (XZ plane)
-    else if(i==11 || i==1 || i==10) n_botxzhit += 1;
+    else if(fChanOrder[0][i]==11 || fChanOrder[0][i]==1 || fChanOrder[0][i]==10) n_botxzhit += 1;
     // Bottom layer (YZ plane)
-    else if(i==6 || i==15 || i==5) n_botyzhit += 1;
+    else if(fChanOrder[0][i]==6 || fChanOrder[0][i]==15 || fChanOrder[0][i]==5) n_botyzhit += 1;
     // Middle layer (XZ plane)
-    else if(i==3 || i==7 || i==2) n_midxzhit += 1;
+    else if(fChanOrder[0][i]==3 || fChanOrder[0][i]==7 || fChanOrder[0][i]==2) n_midxzhit += 1;
     // Middle layer (YZ plane)   
-    else if(i==17 || i==12 || i==16) n_midyzhit += 1;*/
-    
+    else if(fChanOrder[0][i]==17 || fChanOrder[0][i]==12 || fChanOrder[0][i]==16) n_midyzhit += 1;
+    }
     // New board
+    else if(fChanMapChoice==2){
     // Top layer (XZ plane)
-    if(i==4 || i==2 || i==6) n_topxzhit += 1;
+    if(fChanOrder[1][i]==4 || fChanOrder[1][i]==2 || fChanOrder[1][i]==6) n_topxzhit += 1;
     // Top layer (YZ plane)
-    else if(i==12 || i==14 || i==8) n_topyzhit += 1;
+    else if(fChanOrder[1][i]==12 || fChanOrder[1][i]==14 || fChanOrder[1][i]==8) n_topyzhit += 1;
     // Bottom layer (XZ plane)
-    else if(i==17 || i==19 || i==15) n_botxzhit += 1;
+    else if(fChanOrder[1][i]==17 || fChanOrder[1][i]==19 || fChanOrder[1][i]==15) n_botxzhit += 1;
     // Bottom layer (YZ plane)
-    else if(i==23 || i==21 || i==25) n_botyzhit += 1;
+    else if(fChanOrder[1][i]==23 || fChanOrder[1][i]==21 || fChanOrder[1][i]==25) n_botyzhit += 1;
     // Middle layer (XZ plane)
-    else if(i==3 || i==1 || i==5) n_midxzhit += 1;
+    else if(fChanOrder[1][i]==3 || fChanOrder[1][i]==1 || fChanOrder[1][i]==5) n_midxzhit += 1;
     // Middle layer (YZ plane)   
-    else if(i==11 || i==13 || i==7) n_midyzhit += 1;
+    else if(fChanOrder[1][i]==11 || fChanOrder[1][i]==13 || fChanOrder[1][i]==7) n_midyzhit += 1;
+    }
    
   }
 
@@ -2021,8 +1890,9 @@ TVector3 GetMPPC2DPos(int MPPCChan){
   TVector3 pos;
 
   // Old board
+  if(fChanMapChoice==1){
   // Face 1
-  /*if(MPPCChan==1) pos.SetXYZ(1,-1,0);
+  if(MPPCChan==1) pos.SetXYZ(1,-1,0);
   else if(MPPCChan==2) pos.SetXYZ(2,-1,1);
   else if(MPPCChan==3) pos.SetXYZ(0,-1,1);
   else if(MPPCChan==4) pos.SetXYZ(1,-1,2);
@@ -2044,8 +1914,10 @@ TVector3 GetMPPC2DPos(int MPPCChan){
   else if(MPPCChan==17) pos.SetXYZ(-1,2,1);
   else if(MPPCChan==18) pos.SetXYZ(-1,1,2); 
   // No position available
-  else pos.SetXYZ(-1,-1,-1);*/
-  
+  else pos.SetXYZ(-1,-1,-1);
+  }
+  // New board
+  if(fChanMapChoice==2){
   // Face 1 + 3
   if(MPPCChan==3) pos.SetXYZ(0,-1,0);
   else if(MPPCChan==1) pos.SetXYZ(1,-1,0);
@@ -2068,6 +1940,7 @@ TVector3 GetMPPC2DPos(int MPPCChan){
   else if(MPPCChan==8) pos.SetXYZ(-1,2,2); 
   // No position available
   else pos.SetXYZ(-1,-1,-1);
+  }
 
   return pos;
 
@@ -2079,8 +1952,9 @@ TVector3 GetMatchCubePos(int x, int y){
   TVector3 pos;
 
   // Old board
+  if(fChanMapChoice==1){
   // Bottom layer
-  /*if(CheckIndexMatch(x,y,6,10)==true) pos.SetXYZ(0,0,0);
+  if(CheckIndexMatch(x,y,6,10)==true) pos.SetXYZ(0,0,0);
   else if(CheckIndexMatch(x,y,6,1)==true) pos.SetXYZ(1,0,0);
   else if(CheckIndexMatch(x,y,6,11)==true) pos.SetXYZ(2,0,0);
   else if(CheckIndexMatch(x,y,15,10)==true) pos.SetXYZ(0,1,0);
@@ -2110,8 +1984,10 @@ TVector3 GetMatchCubePos(int x, int y){
   else if(CheckIndexMatch(x,y,8,4)==true) pos.SetXYZ(1,2,2);
   else if(CheckIndexMatch(x,y,8,14)==true) pos.SetXYZ(2,2,2);
   // Not matched
-  else pos.SetXYZ(-1,-1,-1);*/
-
+  else pos.SetXYZ(-1,-1,-1);
+  }
+  // New board
+  else if(fChanMapChoice==2){
   // Bottom layer
   if(CheckIndexMatch(x,y,11,3)==true) pos.SetXYZ(0,0,0);
   else if(CheckIndexMatch(x,y,11,1)==true) pos.SetXYZ(1,0,0);
@@ -2144,6 +2020,7 @@ TVector3 GetMatchCubePos(int x, int y){
   else if(CheckIndexMatch(x,y,8,6)==true) pos.SetXYZ(2,2,2);
   // Not matched
   else pos.SetXYZ(-1,-1,-1);
+  }
   
   return pos;
 
@@ -2154,5 +2031,57 @@ bool CheckIndexMatch(int x, int y, int a, int b){
   if(x==a && y==b) return true;
   else if(x==b && y==a) return true;
   else return false;
+
+}
+
+// Get the index corresponding to the input channel
+int ReturnIndex(int chan_num){
+
+  int index;
+
+  // Old board  
+  if(fChanMapChoice==1){
+    if(chan_num==13) index = 0;
+    else if(chan_num==4) index = 1;
+    else if(chan_num==14) index = 2;
+    else if(chan_num==3) index = 3;
+    else if(chan_num==12) index = 4;
+    else if(chan_num==2) index = 5;
+    else if(chan_num==10) index = 6;
+    else if(chan_num==1) index = 7;
+    else if(chan_num==11) index = 8;
+    else if(chan_num==9) index = 9;
+    else if(chan_num==18) index = 10;
+    else if(chan_num==8) index = 11;
+    else if(chan_num==16) index = 12;
+    else if(chan_num==7) index = 13;
+    else if(chan_num==17) index = 14;
+    else if(chan_num==6) index = 15;
+    else if(chan_num==15) index = 16;
+    else if(chan_num==5) index = 17;
+  }
+  // New board
+  else if(fChanMapChoice==2){
+    if(chan_num==4) index = 0;
+    else if(chan_num==2) index = 1;
+    else if(chan_num==6) index = 2;
+    else if(chan_num==17) index = 3;
+    else if(chan_num==19) index = 4;
+    else if(chan_num==15) index = 5;
+    else if(chan_num==3) index = 6;
+    else if(chan_num==1) index = 7;
+    else if(chan_num==5) index = 8;
+    else if(chan_num==12) index = 9;
+    else if(chan_num==14) index = 10;
+    else if(chan_num==8) index = 11;
+    else if(chan_num==23) index = 12;
+    else if(chan_num==21) index = 13;
+    else if(chan_num==25) index = 14;
+    else if(chan_num==11) index = 15;
+    else if(chan_num==13) index = 16;
+    else if(chan_num==7) index = 17;
+  }
+
+  return index;
 
 }

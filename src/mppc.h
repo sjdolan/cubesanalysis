@@ -27,7 +27,7 @@ class Mppc : public TObject {
   UInt_t          ts1;
   UInt_t          ts0_ref;
   UInt_t          ts1_ref;
-  UInt_t          coincidence;
+  //UInt_t          coincidence;
   
   // List of branches
   TBranch        *b_mac5;   //!
@@ -37,7 +37,7 @@ class Mppc : public TObject {
   TBranch        *b_ts1;   //!
   TBranch        *b_ts0_ref;   //!
   TBranch        *b_ts1_ref;   //!
-  TBranch        *b_coinc;
+  //TBranch        *b_coinc;
   //
   Mppc();
 		~Mppc(){};
@@ -57,12 +57,12 @@ class Mppc : public TObject {
 		UInt_t       TS1()                        { return m_ts0ref;     };
 		UInt_t       TS1Ref()                     { return m_ts1ref;     };
 		UInt_t       ADC(Int_t index )            { return m_chg[index]; };
-		UInt_t       Coincidence()                { return m_coin;       }
+		//UInt_t       Coincidence()                { return m_coin;       }
 	private:
 		TTree* m_treeIn;
 		UChar_t m_mac, m_flag;
 		UInt_t 	m_ts0, m_ts0ref, m_ts1, m_ts1ref; 
-		UInt_t m_chg[channel], m_coin;
+		UInt_t m_chg[channel]/*, m_coin*/;
 		static Mppc* m_instance;
 		ClassDef(Mppc,0)
 	};
@@ -134,7 +134,7 @@ class Mppc : public TObject {
 		m_treeIn->SetBranchAddress("ts1", &ts1, &b_ts1);
 		m_treeIn->SetBranchAddress("ts0_ref", &ts0_ref, &b_ts0_ref);
 		m_treeIn->SetBranchAddress("ts1_ref", &ts1_ref, &b_ts1_ref);
-		m_treeIn->SetBranchAddress("coincidence", &coincidence, &b_coinc);
+		//m_treeIn->SetBranchAddress("coincidence", &coincidence, &b_coinc);
 		//
 		if(DEBUG_rg) cout << " m_treeIn::" << m_treeIn->GetEntries() << endl;
 		return true;
@@ -157,7 +157,7 @@ class Mppc : public TObject {
 		m_ts0ref = ts0_ref;
 		m_ts1    = ts1;
 		m_ts1ref = ts1_ref;
-		m_coin   = coincidence;
+		//m_coin   = coincidence;
 		for(int i=0; i<32;i++)
 		{
 			// Correct for channel swap for SFGD run:
