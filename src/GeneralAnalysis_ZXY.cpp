@@ -175,7 +175,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   TString name;
   for(int i = 0; i < fChanNum; i++){
     name.Form("channel%i_noise",chan_order[i]);
-    noise_esti[i] = new TH1D(name,name,100,0,400);
+    noise_esti[i] = new TH1D(name,name,100,1,400);
     noise_esti[i]->GetXaxis()->SetTitle("Estimated noise level / ADC");
     noise_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
     noise_esti[i]->GetXaxis()->SetLabelSize(0.04);
@@ -292,24 +292,32 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double noise_mean = fit_func->GetParameter(1);
   double noise_sigma = fit_func->GetParameter(2);*/
 
+  // Noise distribution fit range (only consider the first peak)
+  // Currently only used for new board data
+  double noise_fitlow[fChanNum] = {100,90,83,71,77,88,88,30,83,73,92,83,52,80,79,72,89,79};
+  double noise_fitupp[fChanNum] = {154,131,135,123,122,135,154,91,156,136,140,150,140,131,153,140,140,146};
+
   double mean_temp, rms_temp;
   double noise_mean[fChanNum];
   double noise_rms[fChanNum];
+  TF1 *fit_func[fChanNum];
   for(int i = 0; i < fChanNum; i++){
 
     // Get overall mean and RMS
     mean_temp = noise_esti[i]->GetMean();
     rms_temp = noise_esti[i]->GetRMS();
 
-    // Gaussian fit around the peak (not safe because sometimes double peak structure)
-    //noise_esti[i]->Fit("gaus","","",mean_temp-rms_temp,mean_temp+rms_temp);
-    //TF1 *fit_func = noise_esti[i]->GetFunction("gaus");
-    //noise_mean[i] = fit_func->GetParameter(1);
-    //noise_rms[i] = fit_func->GetParameter(2);
-
-    noise_mean[i] = mean_temp;
-    noise_rms[i] = rms_temp;
-
+    if(fChanMapChoice==1){ // Take the overall mean and RMS
+      noise_mean[i] = mean_temp;
+      noise_rms[i] = rms_temp; 
+    }
+    else if(fChanMapChoice==2){ // Gauss fit around the peak
+      noise_esti[i]->Fit("gaus","","",noise_fitlow[i],noise_fitupp[i]);
+      fit_func[i] = noise_esti[i]->GetFunction("gaus");
+      noise_mean[i] = fit_func[i]->GetParameter(1);
+      noise_rms[i] = fit_func[i]->GetParameter(2);
+    }
+   
   }
   std::cout << "Noise level estimation done" << std::endl;
 
@@ -454,9 +462,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
   double range_upp = xtalk_rate->GetMean() + 4 * xtalk_rate->GetRMS();
   xtalk_rate->Fit("landau","","",range_low,range_upp);
-  TF1 *fit_func = xtalk_rate->GetFunction("landau");
-  double mean = fit_func->GetParameter(1);
-  double rms = fit_func->GetParameter(2);
+  TF1 *fitfunc_xtalk = xtalk_rate->GetFunction("landau");
+  double mean = fitfunc_xtalk->GetParameter(1);
+  double rms = fitfunc_xtalk->GetParameter(2);
 
   std::cout << "Crosstalk rate MPV: " << mean << endl;
 
@@ -550,6 +558,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
     noise_esti[i]->Draw("hist");
+    if(fChanMapChoice==2) fit_func[i]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i]);
@@ -564,6 +573,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c5->cd(i+1);
     noise_esti[i+9]->Draw("hist");
+    if(fChanMapChoice==2) fit_func[i+9]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i+9]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
