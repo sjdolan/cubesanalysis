@@ -85,16 +85,29 @@ int fFace24[2][9] = {{9,18,8,16,7,17,6,15,5},{12,14,8,23,21,25,11,13,7}};
 
 // Channel order
 // First index = 0 (old board), 1 (new board)
-int fChanOrder[2][18] = {{13,4,14,3,12,2,10,1,11,9,18,8,16,7,17,6,15,5},
-{4,2,6,17,19,15,3,1,5,12,14,8,23,21,25,11,13,7}};
+int fChanOrder[2][18] = {
+
+// Old mapping
+{13,4,14,3,12,2,10,1,11,9,18,8,16,7,17,6,15,5},
+
+// New mapping
+{4,2,6,17,19,15,3,1,5,12,14,8,23,21,25,11,13,7}
+
+};
 
 // MPPC Gain
 // First index = 0 (glued cube), 1 (SFGD cube)
 double fMPPCGain[2][18] = {
-{42.5371,39.4829,42.5123,41.0193,42.2430,43.0222,41.4896,40.4243,40.5144,
-40.0000,41.6886,40.7666,36.7137,38.7410,42.7172,38.7927,37.6620,38.6067},
-{34.4433,39.7124,35.4863,39.2688,37.4597,38.0388,36.9028,40.3587,41.8002,
-43.3295,34.2956,35.6027,36.7148,36.4768,37.3488,36.7135,41.0380,36.7928}};
+
+// Glued cubes
+{42.5371,39.4829,42.5123,41.0193,42.2430,43.0222,41.4896,40.4243,40.5144, // Face 1 + 3
+40.0000,41.6886,40.7666,36.7137,38.7410,42.7172,38.7927,37.6620,38.6067}, // Face 2 + 4
+
+// SFGD cubes
+{34.4433,39.7124,35.4863,39.2688,37.4597,38.0388,36.9028,40.3587,41.8002, // Face 1 + 3
+43.3295,34.2956,35.6027,36.7148,36.4768,37.3488,36.7135,41.0380,36.7928} // Face 2 + 4
+
+};
 
 // ----------------------------------------
 
@@ -406,8 +419,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     cubechan_cen = GetCubeChannel(cubepos_cen);
     for(int i = 0; i < 4; i++) cubechan_bei[i] = GetCubeChannel(cubepos_bei[i]);
 
-    if(data->ADC(int(cubechan_cen.Y())-1)<ADC_cut) continue;
-    if(data->ADC(int(cubechan_cen.X())-1)<ADC_cut) continue;
+    // Do a ADC cut, should not apply on the middle layer
+    if(data->ADC(int(cubechan_cen.Y())-1)<ADC_cut && layer!=1) continue;
+    if(data->ADC(int(cubechan_cen.X())-1)<ADC_cut && layer!=1) continue;
 
     // Check how many nearby cubes in each side (X direction or Y direction)
     nx = 0; ny = 0;
@@ -1475,10 +1489,10 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
     data->GetMppc(n,swap);
  
-    //ADC_temp = GetChannelADC(data,file_option);
+    //ADC_temp.clear();
+    //for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
     //passtag = EventCosmicCut(ADC_temp,ADC_cut);
-
     //if(passtag==false) continue;  
 
     for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(data->ADC(chan_order[i]-1)); 
