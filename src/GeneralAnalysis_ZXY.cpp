@@ -55,24 +55,30 @@ const double fADCUppCut = 4000; // units
 
 // ----------------------------------------
 
+// Number of input files
+const int fFileNum = 4;
+
 // File names array
-std::string fFileName[3] = {"glued_cubes/GluedCubes_OldBoard",
+std::string fFileName[fFileNum] = {"glued_cubes/GluedCubes_OldBoard",
 "sfgd_cubes/SFGDCubes_OldBoard",
-"sfgd_cubes/SFGDCubes_NewBoard"};
+"sfgd_cubes/SFGDCubes_NewBoard",
+"glued_cubes/GluedCubes_NewBoard"};
 
 // Output file names array
-std::string fOutFileName[3] = {"GluedCubes_OldBoard",
+std::string fOutFileName[fFileNum] = {"GluedCubes_OldBoard",
 "SFGDCubes_OldBoard",
-"SFGDCubes_NewBoard"};
+"SFGDCubes_NewBoard",
+"GluedCubes_NewBoard"};
 
 // Path names array
-TString fPathName[3] = {"gluedcubes_oldboard",
+TString fPathName[fFileNum] = {"gluedcubes_oldboard",
 "sfgdcubes_oldboard",
-"sfgdcubes_newboard"};
+"sfgdcubes_newboard",
+"gluedcubes_newboard"};
 
 // Swap index
 // Only SFGD cube data (old board) is swaped
-bool fSwap[3] = {false,true,false};
+bool fSwap[fFileNum] = {false,true,false,false};
 
 // Channel mapping choice, for new board, the channel is different from old board
 // 1 = old board, 2 = new board
@@ -130,7 +136,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   // Channel mapping choice
   if(file_option==1 || file_option==2) fChanMapChoice = 1;
-  else if(file_option==3) fChanMapChoice = 2;
+  else if(file_option==3 || file_option==4) fChanMapChoice = 2;
   
   int chan_order[fChanNum];
   for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
@@ -138,7 +144,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Gain array
   double ADCgain[fChanNum];
   for(int i = 0; i < fChanNum; i++){
-    if(file_option==1) ADCgain[i] = fMPPCGain[0][i]; // Glued cubes
+    if(file_option==1 || file_option==4) ADCgain[i] = fMPPCGain[0][i]; // Glued cubes
     else if(file_option==2 || file_option==3) ADCgain[i] = fMPPCGain[1][i]; // SFGD cubes
   }
 
@@ -372,15 +378,15 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     mean_temp = noise_esti[i]->GetMean();
     rms_temp = noise_esti[i]->GetRMS();
 
-    if(fChanMapChoice==1){ // Take the overall mean and RMS
-      noise_mean[i] = mean_temp;
-      noise_rms[i] = rms_temp; 
-    }
-    else if(fChanMapChoice==2){ // Gauss fit around the peak
+    if(file_option==3){ // Gauss fit around the peak
       noise_esti[i]->Fit("gaus","","",noise_fitlow[i],noise_fitupp[i]);
       fit_func[i] = noise_esti[i]->GetFunction("gaus");
       noise_mean[i] = fit_func[i]->GetParameter(1);
       noise_rms[i] = fit_func[i]->GetParameter(2);
+    }
+    else{ // Take the overall mean and RMS
+      noise_mean[i] = mean_temp;
+      noise_rms[i] = rms_temp; 
     }
    
   }
@@ -577,9 +583,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double scale_trkcube = trkcube_ly->Integral();
   double scale_beicube = beicube_ly->Integral();
   double scale_noise = noise_ly->Integral();
-  trkcube_ly->Scale(1./scale_trkcube);
-  beicube_ly->Scale(1./scale_beicube);
-  noise_ly->Scale(1./scale_noise);
+  if(scale_trkcube>0) trkcube_ly->Scale(1./scale_trkcube);
+  if(scale_beicube>0) beicube_ly->Scale(1./scale_beicube);
+  if(scale_noise>0) noise_ly->Scale(1./scale_noise);
   trkcube_ly->GetYaxis()->SetRangeUser(1e-3,1);
   beicube_ly->GetYaxis()->SetRangeUser(1e-3,1);
   noise_ly->GetYaxis()->SetRangeUser(1e-3,1);
@@ -671,7 +677,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
     noise_esti[i]->Draw("hist");
-    if(fChanMapChoice==2) fit_func[i]->Draw("same");
+    if(file_option==3) fit_func[i]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i]);
@@ -686,7 +692,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c5->cd(i+1);
     noise_esti[i+9]->Draw("hist");
-    if(fChanMapChoice==2) fit_func[i+9]->Draw("same");
+    if(file_option==3) fit_func[i+9]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i+9]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
@@ -1461,7 +1467,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   // Channel mapping choice
   if(file_option==1 || file_option==2) fChanMapChoice = 1;
-  else if(file_option==3) fChanMapChoice = 2;
+  else if(file_option==3 || file_option==4) fChanMapChoice = 2;
 
   int chan_order[fChanNum];
   for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
@@ -2035,9 +2041,9 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
       // Bottom layer (YZ plane)
       else if(fChanOrder[0][i]==6 || fChanOrder[0][i]==15 || fChanOrder[0][i]==5) n_botyzhit += 1;
       // Middle layer (XZ plane)
-      else if(fChanOrder[0][i]==3 || fChanOrder[0][i]==7 || fChanOrder[0][i]==2) n_midxzhit += 1;
+      else if(fChanOrder[0][i]==3 || fChanOrder[0][i]==12 || fChanOrder[0][i]==2) n_midxzhit += 1;
       // Middle layer (YZ plane)   
-      else if(fChanOrder[0][i]==17 || fChanOrder[0][i]==12 || fChanOrder[0][i]==16) n_midyzhit += 1;
+      else if(fChanOrder[0][i]==17 || fChanOrder[0][i]==7 || fChanOrder[0][i]==16) n_midyzhit += 1;
     }
     // New board
     else if(fChanMapChoice==2){
@@ -2046,13 +2052,13 @@ bool EventCosmicCut(std::vector<double> ADC_temp, double ADC_cut){
       // Top layer (YZ plane)
       else if(fChanOrder[1][i]==12 || fChanOrder[1][i]==14 || fChanOrder[1][i]==8) n_topyzhit += 1;
       // Bottom layer (XZ plane)
-      else if(fChanOrder[1][i]==17 || fChanOrder[1][i]==19 || fChanOrder[1][i]==15) n_botxzhit += 1;
+      else if(fChanOrder[1][i]==3 || fChanOrder[1][i]==1 || fChanOrder[1][i]==5) n_botxzhit += 1;
       // Bottom layer (YZ plane)
-      else if(fChanOrder[1][i]==23 || fChanOrder[1][i]==21 || fChanOrder[1][i]==25) n_botyzhit += 1;
+      else if(fChanOrder[1][i]==11 || fChanOrder[1][i]==13 || fChanOrder[1][i]==7) n_botyzhit += 1;
       // Middle layer (XZ plane)
-      else if(fChanOrder[1][i]==3 || fChanOrder[1][i]==1 || fChanOrder[1][i]==5) n_midxzhit += 1;
+      else if(fChanOrder[1][i]==17 || fChanOrder[1][i]==19 || fChanOrder[1][i]==15) n_midxzhit += 1;
       // Middle layer (YZ plane)   
-      else if(fChanOrder[1][i]==11 || fChanOrder[1][i]==13 || fChanOrder[1][i]==7) n_midyzhit += 1;
+      else if(fChanOrder[1][i]==23 || fChanOrder[1][i]==21 || fChanOrder[1][i]==25) n_midyzhit += 1;
     }
    
   }
