@@ -840,27 +840,23 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   std::string fin_name;
   bool swap;
 
-  if(file_option==1){
-    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==2){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==3){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==4){
-    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
-    swap = true;
-  }
+  // Set input file name
+  fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
+  swap = fSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
 
   int n_event = data->GetInputTree()->GetEntries();
+  
+  std::cout << "Total number of events: " << n_event << std::endl;
+  
+  // Channel mapping choice
+  if(file_option==1 || file_option==2) fChanMapChoice = 1;
+  else if(file_option==3 || file_option==4) fChanMapChoice = 2;
+
+  int chan_order[fChanNum];
+  for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
 
   // Create some variables
   int n_pass = 0;
@@ -875,9 +871,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   std::vector<double> chan_path;
 
   // Create some histograms
-  double totly_lim;
-  if(file_option==4) totly_lim = 30000;
-  else totly_lim = 20000;
+  double totly_lim = 30000;
 
   // Total light yield vs. track direction (polar angle)
   TH2D *totly_ang_polar = new TH2D("totly_ang_polar","totly_ang_polar",10,0,45,60,0,totly_lim);
@@ -965,11 +959,10 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
     data->GetMppc(n,swap);
 
-    // Check whether the event passed the cut
-    //ADC_temp = GetChannelADC(data,file_option);
+    ADC_temp.clear();
+    for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
-
     if(pass_tag==false) continue;
     n_pass += 1;
 
@@ -1022,16 +1015,8 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
  
   // Draw the plots
   gStyle->SetOptStat(0);
-  double left_begin;
-  double top_begin;
-  if(file_option==4){
-    left_begin = 0.18;
-    top_begin = 0.68;
-  }
-  else{
-    left_begin = 0.55;
-    top_begin = 0.68;
-  }
+  double left_begin = 0.55;
+  double top_begin = 0.68;
 
   TCanvas *c1 = new TCanvas("totly_ang_polar","totly_ang_polar",800,600);
   c1->SetLeftMargin(0.15);
@@ -1098,75 +1083,24 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // MPPC channel face 1 + 3
   TCanvas *c7 = new TCanvas("pathlength_xz","pathlength_xz",1200,1200);
   c7->Divide(3,3);
-  c7->cd(1);
-  path_length[12]->Draw();
-  //gPad->SetLogy();
-  c7->cd(2);
-  path_length[3]->Draw();
-  //gPad->SetLogy();
-  c7->cd(3);
-  path_length[13]->Draw();
-  //gPad->SetLogy();
-  c7->cd(4);
-  path_length[2]->Draw();
-  //gPad->SetLogy(); 
-  c7->cd(5);
-  path_length[11]->Draw();
-  //gPad->SetLogy();
-  c7->cd(6);
-  path_length[1]->Draw();
-  //gPad->SetLogy();
-  c7->cd(7);
-  path_length[9]->Draw();
-  //gPad->SetLogy();
-  c7->cd(8);
-  path_length[0]->Draw();
-  //gPad->SetLogy();
-  c7->cd(9);
-  path_length[10]->Draw();
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c7->cd(i+1);
+    path_length[i]->Draw("hist");
+  }
   c7->Update();
 
   // MPPC channel face 2 + 4
   TCanvas *c8 = new TCanvas("pathlength_yz","pathlength_yz",1200,1200);
   c8->Divide(3,3);
-  c8->cd(1);
-  path_length[8]->Draw();
-  //gPad->SetLogy();
-  c8->cd(2);
-  path_length[17]->Draw();
-  //gPad->SetLogy();
-  c8->cd(3);
-  path_length[7]->Draw(); 
-  //gPad->SetLogy();
-  c8->cd(4);
-  path_length[15]->Draw();
-  //gPad->SetLogy();
-  c8->cd(5);
-  path_length[6]->Draw();
-  //gPad->SetLogy();
-  c8->cd(6);
-  path_length[16]->Draw();
-  //gPad->SetLogy();
-  c8->cd(7);
-  path_length[5]->Draw();
-  //gPad->SetLogy();
-  c8->cd(8);
-  path_length[14]->Draw();
-  //gPad->SetLogy();
-  c8->cd(9);
-  path_length[4]->Draw();
-  //gPad->SetLogy();
+  for(int i = 0; i < 9; i++){
+    c8->cd(i+1);
+    path_length[i+9]->Draw("hist");
+  }
   c8->Update();
   
   TString prefix = "../../../plots/scintillator_cube/";
-  TString type;
+  TString type = fPathName[file_option-1] + "/";
   TString suffix;
-
-  if(file_option==1) type = "gluedcubes_noteflon_nogluedfiber/";
-  else if(file_option==2) type = "gluedcubes_withteflon_nogluedfiber/";
-  else if(file_option==3) type = "gluedcubes_withteflon_gluedfiber/";
-  else if(file_option==4) type = "sfgdcubes_gluedfiber/";
 
   suffix = prefix + type + "totly_ang_polar.png";
   c1->SaveAs(suffix);
@@ -1193,20 +1127,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c8->SaveAs(suffix);
 
   // Save the plots into output file
-  TString fout_name;
-
-  if(file_option==1){
-    fout_name = "../../results/Event3DAnalysis_GluedCubes_NoTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==2){
-    fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==3){
-    fout_name = "../../results/Event3DAnalysis_GluedCubes_WithTeflon_GluedFiber.root";
-  }
-  else if(file_option==4){
-    fout_name = "../../results/Event3DAnalysis_SFGDCubes_GluedFiber.root";
-  }
+  TString fout_name = "../../results/Track3DAnalysis_" + fOutFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
@@ -1242,28 +1163,23 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   std::string fin_name;
   bool swap;
 
-  if(file_option==1){
-    fin_name = "../../inputs/GluedCubes_NoTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==2){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_NoGluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==3){
-    fin_name = "../../inputs/GluedCubes_WithTeflon_GluedFiber.root";
-    swap = false;
-  }
-  else if(file_option==4){
-    fin_name = "../../inputs/SFGDCubes_GluedFiber.root";
-    swap = true;
-  }
+  // Set input file name
+  fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
+  swap = fSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
 
   int n_event = data->GetInputTree()->GetEntries();
+  std::cout << "Total number of events: " << n_event << std::endl;
   int rand_event;
+
+  // Channel mapping choice
+  if(file_option==1 || file_option==2) fChanMapChoice = 1;
+  else if(file_option==3 || file_option==4) fChanMapChoice = 2;
+
+  int chan_order[fChanNum];
+  for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
 
   // Random number generator
   TRandom3 *rand = new TRandom3();
@@ -1324,8 +1240,8 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
     //std::cout << "Event number: " << rand_event << endl;
     data->GetMppc(rand_event,swap);
 
-    // Check whether this event passes the cosmic cut 
-    //ADC_temp = GetChannelADC(data,file_option);
+    ADC_temp.clear();
+    for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
     pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
 
@@ -1344,9 +1260,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
       // Also draw 2D MPPC on each plane
       for(int i = 0; i < fChanNum; i++){
-        cube_pos = GetMPPC2DPos(i+1);
-        MPPC2D_xz->Fill(cube_pos.X(),cube_pos.Z(),data->ADC(i));
-        MPPC2D_yz->Fill(cube_pos.Y(),cube_pos.Z(),data->ADC(i)); 
+        cube_pos = GetMPPC2DPos(chan_order[i]);
+        MPPC2D_xz->Fill(cube_pos.X(),cube_pos.Z(),data->ADC(chan_order[i]-1));
+        MPPC2D_yz->Fill(cube_pos.Y(),cube_pos.Z(),data->ADC(chan_order[i]-1)); 
       }
  
       out_tag = true; 
@@ -1404,34 +1320,15 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   trk_graph->Draw("LINE SAME");
   c4->Update();
 
-  if(file_option==1){
-    c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_noteflon_nogluedfiber/combine.png");
-  }
-  else if(file_option==2){
-    c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_nogluedfiber/combine.png");
-  }
-  else if(file_option==3){
-    c4->SaveAs("../../../plots/scintillator_cube/gluedcubes_withteflon_gluedfiber/combine.png");
-  }
-  else if(file_option==4){
-    c4->SaveAs("../../../plots/scintillator_cube/sfgdcubes_gluedfiber/combine.png");
-  }
+  TString prefix = "../../../plots/scintillator_cube/";
+  TString type = fPathName[file_option-1] + "/";
+  TString suffix;
+
+  suffix = prefix + type + "3Dexample_combine.png";
+  c4->SaveAs(suffix);
 
   // Save the plot into output file
-  TString fout_name;
-
-  if(file_option==1){
-    fout_name = "../../results/EventDisplay_GluedCubes_NoTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==2){
-    fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon_NoGluedFiber.root";
-  }
-  else if(file_option==3){
-    fout_name = "../../results/EventDisplay_GluedCubes_WithTeflon_GluedFiber.root";
-  }
-  else if(file_option==4){
-    fout_name = "../../results/EventDisplay_SFGDCubes_GluedFiber.root";
-  }
+  TString fout_name = "../../results/Track3DDisplay_" + fOutFileName[file_option-1] + ".root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
