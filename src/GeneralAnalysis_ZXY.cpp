@@ -59,10 +59,11 @@ const double fADCUppCut = 4000; // units
 const int fFileNum = 4;
 
 // File names array
-std::string fFileName[fFileNum] = {"glued_cubes/GluedCubes_OldBoard",
-"sfgd_cubes/SFGDCubes_OldBoard",
-"sfgd_cubes/SFGDCubes_NewBoard",
-"glued_cubes/GluedCubes_NewBoard"};
+std::string fFileName[fFileNum] = {"glued_cubes/GluedCubes_OldBoard", // May 18, 19 and June 4
+"sfgd_cubes/SFGDCubes_OldBoard", // May 4 - 7
+"sfgd_cubes/SFGDCubes_NewBoard", // June 5, 7 - 9
+"glued_cubes/GluedCubes_NewBoard" // June 10, 11
+};
 
 // Output file names array
 std::string fOutFileName[fFileNum] = {"GluedCubes_OldBoard",
@@ -77,8 +78,10 @@ TString fPathName[fFileNum] = {"gluedcubes_oldboard",
 "gluedcubes_newboard"};
 
 // Swap index
-// Only SFGD cube data (old board) is swaped
+// Only SFGD cube data (old board) is swapped
 bool fSwap[fFileNum] = {false,true,false,false};
+// Only SFGD cube data (new board) is swapped
+bool fNewSwap[fFileNum] = {false,false,true,false};
 
 // Channel mapping choice, for new board, the channel is different from old board
 // 1 = old board, 2 = new board
@@ -121,11 +124,12 @@ double fMPPCGain[2][18] = {
 void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
-  bool swap;
+  bool swap, newswap;
 
   // Set input file name
   fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
   swap = fSwap[file_option-1];
+  newswap = fNewSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -277,7 +281,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // First loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n,swap);
+    data->GetMppc(n,swap,newswap);
 
     ADC_temp.clear();
     for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
@@ -365,8 +369,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   // Noise distribution fit range (only consider the first peak)
   // Currently only used for new board data
-  double noise_fitlow[fChanNum] = {100,90,83,71,77,88,88,30,83,73,92,83,52,80,79,72,89,79};
-  double noise_fitupp[fChanNum] = {154,131,135,123,122,135,154,91,156,136,140,150,140,131,153,140,140,146};
+  double noise_fitlow[fChanNum] = {100,90,83,73,77,54,88,30,83,73,92,83,52,80,79,72,89,79};
+  double noise_fitupp[fChanNum] = {154,131,135,129,122,125,154,91,156,136,140,150,140,131,153,140,140,146};
 
   double mean_temp, rms_temp;
   double noise_mean[fChanNum];
@@ -397,7 +401,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Second loop over all events 
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n,swap);
+    data->GetMppc(n,swap,newswap);
 
     ADC_temp.clear();
     for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
@@ -838,11 +842,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
-  bool swap;
+  bool swap, newswap;
 
   // Set input file name
   fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
   swap = fSwap[file_option-1];
+  newswap = fNewSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -957,7 +962,7 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n,swap);
+    data->GetMppc(n,swap,newswap);
 
     ADC_temp.clear();
     for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
@@ -1161,11 +1166,12 @@ void Event3DAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
   std::string fin_name;
-  bool swap;
+  bool swap, newswap;
 
   // Set input file name
   fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
   swap = fSwap[file_option-1];
+  newswap = fNewSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -1238,7 +1244,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
     // Randomly choose an event
     rand_event = rand->Rndm() * n_event; 
     //std::cout << "Event number: " << rand_event << endl;
-    data->GetMppc(rand_event,swap);
+    data->GetMppc(rand_event,swap,newswap);
 
     ADC_temp.clear();
     for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
@@ -1351,11 +1357,12 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 
   std::string fin_name;
-  bool swap;
+  bool swap, newswap;
 
   // Input file name
   fin_name = "../../inputs/" + fFileName[file_option-1] + ".root";
   swap = fSwap[file_option-1];
+  newswap = fNewSwap[file_option-1];
 
   TreeManager filereader(fin_name);
   Mppc *data = filereader.tmCD();
@@ -1390,7 +1397,7 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
   // Loop over all events
   for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n,swap);
+    data->GetMppc(n,swap,newswap);
  
     //ADC_temp.clear();
     //for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));

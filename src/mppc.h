@@ -48,7 +48,7 @@ class Mppc : public TObject {
 		bool SetBranchAddresses();
 		Mppc(TTree* aTree, const std::string& option);
 		TTree* GetInputTree();
-		void GetMppc(Long64_t entry, bool isSFGDChannelSwap);
+		void GetMppc(Long64_t entry, bool isSFGDChannelSwap, bool isnewSFGDChannelSwap);
 		
 		UChar_t      Mac()                        { return m_mac;        };
 		//UChar_t      Flag()                       { return m_flag;       };
@@ -142,7 +142,7 @@ class Mppc : public TObject {
 	// accessors for the input TTree
 	TTree* Mppc::GetInputTree() {return m_treeIn;};
 	// get all branch contents of input TTree for entry i
-	void Mppc::GetMppc(Long64_t entry, bool isSFGDChannelSwap=true)
+	void Mppc::GetMppc(Long64_t entry, bool isSFGDChannelSwap=false, bool isnewSFGDChannelSwap=false)
 	{
 		if (!m_treeIn) {
 			cout << "Mppc::getEntry error" << endl;
@@ -160,10 +160,17 @@ class Mppc : public TObject {
 		//m_coin   = coincidence;
 		for(int i=0; i<32;i++)
 		{
-			// Correct for channel swap for SFGD run:
-			if (i==8 && isSFGDChannelSwap) m_chg[8] = chg[18];
-			else if (i==18 && isSFGDChannelSwap) m_chg[18] = chg[8];
-			else m_chg[i] = chg[i];
+		  if(isSFGDChannelSwap==true){
+		    if(i==8) m_chg[8] = chg[18];
+		    else if(i==18) m_chg[18] = chg[8];
+		    else m_chg[i] = chg[i];
+		  }
+		  else if(isnewSFGDChannelSwap==true){
+		    if(i==14) m_chg[14] = chg[16];
+		    else if(i==16) m_chg[16] = chg[14];
+		    else m_chg[i] = chg[i];
+		  }
+		  else m_chg[i] = chg[i];
 		}
 		if(DEBUG_rg) m_treeIn->Print();
 	}
