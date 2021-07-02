@@ -39,6 +39,7 @@ bool EventCosmicCut(std::vector<double>,double);
 TVector3 GetCubeChannel(TVector3);
 TLorentzVector GetNearbyChannel(int);
 int ReturnIndex(int);
+bool CheckTrackVertical(std::vector<TLorentzVector>);
 
 // ----------------------------------------
 
@@ -108,13 +109,17 @@ int fChanOrder[2][18] = {
 // First index = 0 (glued cube), 1 (SFGD cube)
 double fMPPCGain[2][18] = {
 
-// Glued cubes
+// Glued cubes (old board)
 {42.5371,39.4829,42.5123,41.0193,42.2430,43.0222,41.4896,40.4243,40.5144, // Face 1 + 3
 40.0000,41.6886,40.7666,36.7137,38.7410,42.7172,38.7927,37.6620,38.6067}, // Face 2 + 4
 
-// SFGD cubes
-{34.4433,39.7124,35.4863,39.2688,37.4597,38.0388,36.9028,40.3587,41.8002, // Face 1 + 3
-43.3295,34.2956,35.6027,36.7148,36.4768,37.3488,36.7135,41.0380,36.7928} // Face 2 + 4
+// SFGD cubes (old board)
+//{34.4433,39.7124,35.4863,39.2688,37.4597,38.0388,36.9028,40.3587,41.8002, // Face 1 + 3
+//43.3295,34.2956,35.6027,36.7148,36.4768,37.3488,36.7135,41.0380,36.7928} // Face 2 + 4
+
+// SFGD cubes (new board)
+{39.533,37.871,38.012,39.381,35.342,37.211,41.4896,37.439,38.46, // Face 1 + 3
+37.56,36.945,40.4,37.53,38.606,43.763,43.59,37.943,35.315} // Face 2 + 4
 
 };
 
@@ -282,6 +287,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   }
 
+  // 2D plot, xtalk rate vs. track channel p.e.
+  TH2D *test_2d = new TH2D("test_2d","test_2d",60,0,120,40,0,12);
+  test_2d->GetXaxis()->SetTitle("Track channel / p.e.");
+  test_2d->GetYaxis()->SetTitle("Crosstalk channel / p.e.");
+  test_2d->SetTitle("");
+
   // Estimate the noise level in order to subtract it
   std::cout << "Start to estimate noise level" << std::endl;
   // First loop over all events
@@ -373,8 +384,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       if(cube_array.size()!=3) continue;
 
       // Only select the vertical tracks
-      std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
-      if(TMath::Abs(track_info[1])>1e-4) continue;   
+      //std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+      //if(TMath::Abs(track_info[1])>1e-4) continue;   
+    
+      if(CheckTrackVertical(cube_array)!=true) continue;
     
       // Loop over each layer
       for(int layer = 0; layer < 3; layer++){
@@ -437,16 +450,16 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     mean_temp = noise_esti[i]->GetMean();
     rms_temp = noise_esti[i]->GetRMS();
 
-    if(file_option==3){ // Gauss fit around the peak
-      noise_esti[i]->Fit("gaus","","",noise_fitlow[i],noise_fitupp[i]);
-      fit_func[i] = noise_esti[i]->GetFunction("gaus");
-      noise_mean[i] = fit_func[i]->GetParameter(1);
-      noise_rms[i] = fit_func[i]->GetParameter(2);
-    }
-    else{ // Take the overall mean and RMS
+    //if(file_option==3){ // Gauss fit around the peak
+    //  noise_esti[i]->Fit("gaus","","",noise_fitlow[i],noise_fitupp[i]);
+    //  fit_func[i] = noise_esti[i]->GetFunction("gaus");
+    //  noise_mean[i] = fit_func[i]->GetParameter(1);
+    //  noise_rms[i] = fit_func[i]->GetParameter(2);
+    //}
+    //else{ // Take the overall mean and RMS
       noise_mean[i] = mean_temp;
       noise_rms[i] = rms_temp; 
-    }
+    //}
    
   }
   std::cout << "Noise level estimation done" << std::endl;
@@ -469,15 +482,17 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     if(cube_array.size()!=3) continue;
 
     // Only select the vertical tracks
-    std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
-    if(TMath::Abs(track_info[1])>1e-4) continue;
+    //std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+    //if(TMath::Abs(track_info[1])>1e-4) continue;
+  
+    if(CheckTrackVertical(cube_array)!=true) continue;
+
+    // Only select the edge tracks
+    double dis = pow(cube_array[1].X()-1,2) + pow(cube_array[1].Y()-1,2);
+    if(dis!=1.) continue;
 
     // Estimate the crosstalk rate (loop over all 3 layers)
     for(int layer = 0; layer < 3; layer++){
-
-    // Only select the edge tracks
-    double dis = pow(cube_array[layer].X()-1,2) + pow(cube_array[layer].Y()-1,2);
-    if(dis!=1.) continue;
 
     cubepos_cen.SetXYZ(cube_array[layer].X(),cube_array[layer].Y(),cube_array[layer].Z());
     cubepos_bei[0].SetXYZ(cube_array[layer].X()-1,cube_array[layer].Y(),cube_array[layer].Z());
@@ -549,7 +564,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         cubegain_bei[i] = ADCgain[index_temp]; // Use gain per channel     
         xtalk_adc[index_temp]->Fill(data->ADC(int(cubechan_bei[i].Y())-1));   
       }
-      else{
+      else if(cubechan_bei[i].Y()==cubechan_cen.Y()){      
         cubely_bei[i] = data->ADC(int(cubechan_bei[i].X())-1);
         index_temp = ReturnIndex(int(cubechan_bei[i].X()));
         cubenoise_bei[i] = noise_mean[index_temp]; // Estimate noise level per channel
@@ -576,7 +591,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         noise_frac = cubenoise_bei[i] / (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) * 100;
         // Only use middle layer to estimate crosstalk
         if(layer==1){
-          xtalk_rate->Fill(xtalk_frac);
+          if(xtalk_frac>=0) xtalk_rate->Fill(xtalk_frac);
+          else xtalk_rate->Fill(0);
+          //xtalk_rate->Fill(xtalk_frac);
           comp_noisefrac->Fill(noise_frac);
           xtalk_frac = cubely_bei[i] / (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) * 100;
           comp_xtalkfrac->Fill(xtalk_frac);
@@ -593,13 +610,19 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         xtalk_frac = ((cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
         noise_frac = (cubenoise_bei[i] / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
         if(layer==1){
-          xtalk_rate_pe->Fill(xtalk_frac);
+          double trk_pe = (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
+          double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
+          if(xtalk_pe<=0) xtalk_pe = 0;
+          test_2d->Fill(trk_pe,xtalk_pe);
+          if(xtalk_frac>=0) xtalk_rate_pe->Fill(xtalk_frac);
+          else xtalk_rate_pe->Fill(0);
+          //xtalk_rate_pe->Fill(xtalk_frac);
           comp_noisefrac_pe->Fill(noise_frac);
           xtalk_frac = (cubely_bei[i] / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
           comp_xtalkfrac_pe->Fill(xtalk_frac);
         }
       }
-      else{
+      else if(cubechan_bei[i].Y()==cubechan_cen.Y()){
         if(data->ADC(int(cubechan_cen.X())-1)>fADCUppCut) continue; 
         if(cubenoise_bei[i]<=0.) continue; 
 
@@ -612,7 +635,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         noise_frac = cubenoise_bei[i] / (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) * 100;
         // Only use middle layer to estimate crosstalk
         if(layer==1){ 
-          xtalk_rate->Fill(xtalk_frac);
+          if(xtalk_frac>=0) xtalk_rate->Fill(xtalk_frac);
+          else xtalk_rate->Fill(0);
+          //xtalk_rate->Fill(xtalk_frac);
           comp_noisefrac->Fill(noise_frac);
           xtalk_frac = cubely_bei[i] / (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) * 100;
           comp_xtalkfrac->Fill(xtalk_frac);
@@ -629,7 +654,13 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         xtalk_frac = ((cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
         noise_frac = (cubenoise_bei[i] / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
         if(layer==1){
-          xtalk_rate_pe->Fill(xtalk_frac);
+          double trk_pe = (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
+          double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
+          if(xtalk_pe<=0) xtalk_pe = 0;
+          test_2d->Fill(trk_pe,xtalk_pe);
+          if(xtalk_frac>=0) xtalk_rate_pe->Fill(xtalk_frac);
+          else xtalk_rate_pe->Fill(0);
+          //xtalk_rate_pe->Fill(xtalk_frac);
           comp_noisefrac_pe->Fill(noise_frac);
           xtalk_frac = (cubely_bei[i] / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
           comp_xtalkfrac_pe->Fill(xtalk_frac);
@@ -737,10 +768,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   xtalk_rate->SetLineColor(kBlue);
   xtalk_rate->Draw("hist");
 
-  //name.Form("Landau fit:");
-  //pl_name->DrawTextNDC(0.55,0.68,name);
-  //name.Form("MPV = %f percent",mean);
-  //pl_mean->DrawTextNDC(0.55,0.61,name);
+  name.Form("Overall mean:");
+  pl_name->DrawTextNDC(0.55,0.68,name);
+  name.Form("%f percent",xtalk_rate->GetMean());
+  pl_mean->DrawTextNDC(0.55,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
   c1->Update();
@@ -752,10 +783,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   xtalk_rate_pe->SetLineColor(kRed);
   xtalk_rate_pe->Draw("hist");
 
-  //name.Form("Landau fit:");
-  //pl_name->DrawTextNDC(0.55,0.68,name);
-  //name.Form("MPV = %f percent",mean_ex);
-  //pl_mean->DrawTextNDC(0.55,0.61,name);
+  name.Form("Overall mean:");
+  pl_name->DrawTextNDC(0.55,0.68,name);
+  name.Form("%f percent",xtalk_rate_pe->GetMean());
+  pl_mean->DrawTextNDC(0.55,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
   c1ex->Update();
@@ -814,7 +845,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
     noise_esti[i]->Draw("hist");
-    if(file_option==3 && noise_mean[i]!=0) fit_func[i]->Draw("same");
+    //if(file_option==3 && noise_mean[i]!=0) fit_func[i]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i]);
@@ -829,7 +860,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c5->cd(i+1);
     noise_esti[i+9]->Draw("hist");
-    if(file_option==3 && noise_mean[i]!=0) fit_func[i+9]->Draw("same");
+    //if(file_option==3 && noise_mean[i]!=0) fit_func[i+9]->Draw("same");
     name.Form("Overall mean = %f ADC",noise_mean[i+9]);
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
@@ -895,6 +926,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   }
   c11->Update();
 
+  TCanvas *c12 = new TCanvas("test_2d","test_2d",800,600);
+  c12->SetLeftMargin(0.15);
+  c12->SetRightMargin(0.15);
+  c12->cd();
+  test_2d->SetContour(99);
+  test_2d->Draw("colz");
+  c12->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = fPathName[file_option-1] + "/";
   TString suffix;
@@ -941,6 +980,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   suffix = prefix + type + "trackADC_yz.png";
   c11->SaveAs(suffix);
 
+  suffix = prefix + type + "test_2d.png";
+  c12->SaveAs(suffix);
+
   // Save the plots into output file
   TString fout_name = "../../results/CrosstalkAnalysis_" + fOutFileName[file_option-1] + ".root";
 
@@ -961,6 +1003,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c9->Write();
   c10->Write();
   c11->Write();
+  c12->Write();
 
   xtalk_rate->Write();
   xtalk_rate_pe->Write();
@@ -974,6 +1017,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     xtalk_adc[i]->Write();
     track_adc[i]->Write();
   }
+
+  test_2d->Write();
 
   fout->Close();
 
@@ -2318,5 +2363,27 @@ int ReturnIndex(int chan_num){
   }
 
   return index;
+
+}
+
+bool CheckTrackVertical(std::vector<TLorentzVector> cube_array){
+
+  bool x_match = true;
+  bool y_match = true;
+  
+  for(int n = 1; n < cube_array.size(); n++){
+    
+    if(cube_array[n].X() != cube_array[n-1].X()) x_match = false;
+    
+    if(cube_array[n].Y() != cube_array[n-1].Y()) y_match = false;
+    
+  }
+  
+  bool ver_tag;
+  
+  if(x_match == true && y_match == true) ver_tag = true;
+  else ver_tag = false;
+  
+  return ver_tag;
 
 }

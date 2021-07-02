@@ -456,7 +456,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   std::cout << "Noise level estimation done" << std::endl;*/
   
   double noise_container[2][fChanNum] = {
-         {128.553, 0, 108.616, 105.381, 0, 93.4266, 113.79, 0, 125.552, 104.215, 0, 113.898, 88.3415, 0, 114.863, 105.775, 0, 109.99}, // SFGD cube
+         {149.154, 0, 120.091, 119.475, 0, 103.577, 131.616, 0, 141.784, 119.363, 0, 126.163, 96.7344, 0, 126.782, 114.267, 0, 119.008}, // SFGD cube
          {127.877, 0, 106.411, 94.8038, 0, 103.002, 115.572, 0, 121.965, 102.063, 0, 111.15, 88.8597, 0, 116.547, 106.911, 0, 107.564} // Glued cube
          };
 
@@ -665,7 +665,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Fit the crosstalk distribution 
   if(file_option==3){
     range_low = 0;
-    range_upp = 13;
+    range_upp = 11;
   }
   else if(file_option==4){
     range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
@@ -680,7 +680,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   if(file_option==3){
     range_low = 0;
-    range_upp = 13;
+    range_upp = 11;
   }
   else if(file_option==4){
     range_low = xtalk_rate_pe->GetMean() - 2 * xtalk_rate_pe->GetRMS();
