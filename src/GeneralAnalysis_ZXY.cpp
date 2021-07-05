@@ -40,6 +40,7 @@ TVector3 GetCubeChannel(TVector3);
 TLorentzVector GetNearbyChannel(int);
 int ReturnIndex(int);
 bool CheckTrackVertical(std::vector<TLorentzVector>);
+template <class T> void SetHistoSettings(T*);
 
 // ----------------------------------------
 
@@ -180,13 +181,13 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   // Create some histograms
   // Overall crosstalk rate (with ADC)
-  TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",60,0,30);
-  xtalk_rate->GetXaxis()->SetTitle("Fraction / %");
+  TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",30,0,15);
+  xtalk_rate->GetXaxis()->SetTitle("Crosstalk fraction / %");
   xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
-  xtalk_rate->GetXaxis()->SetLabelSize(0.04);
-  xtalk_rate->GetXaxis()->SetTitleSize(0.04);
-  xtalk_rate->GetYaxis()->SetLabelSize(0.04);
-  xtalk_rate->GetYaxis()->SetTitleSize(0.04);
+  xtalk_rate->GetXaxis()->SetLabelSize(0.05);
+  xtalk_rate->GetXaxis()->SetTitleSize(0.05);
+  xtalk_rate->GetYaxis()->SetLabelSize(0.05);
+  xtalk_rate->GetYaxis()->SetTitleSize(0.05);
   xtalk_rate->GetYaxis()->SetTitleOffset(1.4);
   xtalk_rate->SetTitle("");
 
@@ -343,7 +344,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
     // Method 2: estimate noise level per channel
     // Loop over each channel, if the channel satisfies requirement, then fill the noise histogram
-    if(fChanMapChoice==1){
+    //if(fChanMapChoice==1){
       for(int i = 0; i < fChanNum; i++){
    
         // Channel ADC smaller than cut
@@ -374,11 +375,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         noise_ly->Fill(ADC_temp[i]);
 
       } // End of channel loop
-    }
+    //}
     
     // Method 3: estimate noise level per channel, but in a safer way
     // This applies to the new board data, because there is trigger to select the events
-    else if(fChanMapChoice==2){    
+    /*else if(fChanMapChoice==2){    
       // First match cubes at each layer, do not apply any cut
       cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
       if(cube_array.size()!=3) continue;
@@ -416,7 +417,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
           }
         }
       }
-    }
+    }*/
 
   }
 
@@ -589,6 +590,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         index_temp = ReturnIndex(int(cubechan_cen.Y()));
         xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) * 100;
         noise_frac = cubenoise_bei[i] / (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) * 100;
+
+        // Crosstalk level per channel
+        if(xtalk_frac>=0) xtalk_esti[index_temp]->Fill(xtalk_frac);
+        else xtalk_esti[index_temp]->Fill(0);
+
         // Only use middle layer to estimate crosstalk
         if(layer==1){
           if(xtalk_frac>=0) xtalk_rate->Fill(xtalk_frac);
@@ -602,9 +608,6 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(data->ADC(int(cubechan_cen.Y())-1));
         track_adc[index_temp]->Fill(data->ADC(int(cubechan_cen.Y())-1));
-
-        // Crosstalk level per channel      
-        xtalk_esti[index_temp]->Fill(xtalk_frac);
 
         // Crosstalk level with p.e
         xtalk_frac = ((cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
@@ -633,6 +636,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         index_temp = ReturnIndex(int(cubechan_cen.X()));
         xtalk_frac = (cubely_bei[i] - cubenoise_bei[i]) / (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) * 100;
         noise_frac = cubenoise_bei[i] / (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) * 100;
+
+        // Crosstalk level per channel
+        if(xtalk_frac>=0) xtalk_esti[index_temp]->Fill(xtalk_frac);
+        else xtalk_esti[index_temp]->Fill(0);
+
         // Only use middle layer to estimate crosstalk
         if(layer==1){ 
           if(xtalk_frac>=0) xtalk_rate->Fill(xtalk_frac);
@@ -646,9 +654,6 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         beicube_ly->Fill(cubely_bei[i]);
         trkcube_ly->Fill(data->ADC(int(cubechan_cen.X())-1));
         track_adc[index_temp]->Fill(data->ADC(int(cubechan_cen.X())-1));
-
-        // Crosstalk level per channel
-        xtalk_esti[index_temp]->Fill(xtalk_frac);
 
         // Crosstalk level with p.e.
         xtalk_frac = ((cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i]) / ((data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp]) * 100;
@@ -760,20 +765,23 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   gPad->SetGridy();
   c0ex->Update(); 
 
-
   TCanvas *c1 = new TCanvas("xtalk_rate","xtalk_rate",700,600);
   c1->SetLeftMargin(0.15);
   c1->cd();
   xtalk_rate->SetLineWidth(2);
   xtalk_rate->SetLineColor(kBlue);
+  //xtalk_rate->SetMarkerColor(kBlue);
+  //xtalk_rate->SetMarkerStyle(20);
+  //xtalk_rate->Draw("P E0");
   xtalk_rate->Draw("hist");
 
-  name.Form("Overall mean:");
-  pl_name->DrawTextNDC(0.55,0.68,name);
-  name.Form("%f percent",xtalk_rate->GetMean());
-  pl_mean->DrawTextNDC(0.55,0.61,name);
+  name.Form("Crosstalk fraction:");
+  pl_name->DrawTextNDC(0.5,0.68,name);
+  name.Form("Mean = %f",xtalk_rate->GetMean());
+  pl_mean->DrawTextNDC(0.5,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
+  if(file_option==1 || file_option==4) gPad->SetLogy();
   c1->Update();
 
   TCanvas *c1ex = new TCanvas("xtalk_rate_pe","xtalk_rate_pe",700,600);
@@ -781,14 +789,18 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c1ex->cd();
   xtalk_rate_pe->SetLineWidth(2);
   xtalk_rate_pe->SetLineColor(kRed);
+  //xtalk_rate_pe->SetMarkerColor(kRed);
+  //xtalk_rate_pe->SetMarkerStyle(20);
+  //xtalk_rate_pe->Draw("E P0");
   xtalk_rate_pe->Draw("hist");
 
-  name.Form("Overall mean:");
-  pl_name->DrawTextNDC(0.55,0.68,name);
-  name.Form("%f percent",xtalk_rate_pe->GetMean());
-  pl_mean->DrawTextNDC(0.55,0.61,name);
+  name.Form("Crosstalk fraction:");
+  pl_name->DrawTextNDC(0.5,0.68,name);
+  name.Form("Mean = %f",xtalk_rate_pe->GetMean());
+  pl_mean->DrawTextNDC(0.5,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
+  if(file_option==1 || file_option==4) gPad->SetLogy();
   c1ex->Update();
 
   TCanvas *c2 = new TCanvas("cubely_comp","cubely_comp",700,600);
@@ -947,7 +959,13 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   suffix = prefix + type + "xtalk_rate.png";
   c1->SaveAs(suffix);
 
+  suffix = prefix + type + "xtalk_rate.pdf";
+  c1->SaveAs(suffix);
+
   suffix = prefix + type + "xtalk_rate_pe.png";
+  c1ex->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalk_rate_pe.pdf";
   c1ex->SaveAs(suffix);
 
   suffix = prefix + type + "cubely_comp.png";
@@ -1442,13 +1460,26 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
       // Get the cube array
       cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
 
+      // 3D plot show the track (straight line)
+      std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+      
+      if(track_info[1]<40) out_tag = false;
+      else out_tag = true;
+
+    }
+
+    if(pass_tag==true && out_tag==true){
+
+      // Get the cube array
+      //cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
+
       // 3D plot show the cubes
       for(int i = 0; i < cube_array.size(); i++){
         Event_show->Fill(cube_array[i].X(),cube_array[i].Y(),cube_array[i].Z(),cube_array[i].T());
       }
 
       // 3D plot show the track (straight line)
-      std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
+      //std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
 
       // Also draw 2D MPPC on each plane
       for(int i = 0; i < fChanNum; i++){
@@ -1457,7 +1488,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
         MPPC2D_yz->Fill(cube_pos.Y(),cube_pos.Z(),data->ADC(chan_order[i]-1)); 
       }
  
-      out_tag = true; 
+      //out_tag = true; 
    
     }
 
@@ -1472,6 +1503,10 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   //trk_graph->SetTitle("");
   trk_graph->SetLineWidth(2);
   trk_graph->SetLineColor(kBlue);
+
+  SetHistoSettings(Event_show);
+  SetHistoSettings(bkg_temp);
+  SetHistoSettings(trk_graph);
 
   // Plot the histograms
   gStyle->SetOptStat(0);
@@ -1512,12 +1547,30 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   trk_graph->Draw("LINE SAME");
   c4->Update();
 
+  TCanvas *c5 = new TCanvas("event_3d","event_3d",1200,600);
+  c5->Divide(2,1);
+  c5->cd(1);
+  Event_show->Draw("BOX2");
+  c5->cd(2);
+  bkg_temp->Draw();
+  trk_graph->Draw("LINE SAME");
+  c5->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = fPathName[file_option-1] + "/";
   TString suffix;
 
   suffix = prefix + type + "3Dexample_combine.png";
   c4->SaveAs(suffix);
+
+  suffix = prefix + type + "3Dexample_combine.pdf";
+  c4->SaveAs(suffix);
+
+  suffix = prefix + type + "3Dexample_event.png";
+  c5->SaveAs(suffix);
+
+  suffix = prefix + type + "3Dexample_event.pdf";
+  c5->SaveAs(suffix);
 
   // Save the plot into output file
   TString fout_name = "../../results/Track3DDisplay_" + fOutFileName[file_option-1] + ".root";
@@ -1529,6 +1582,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   c2->Write();
   c3->Write();
   c4->Write();
+  c5->Write();
 
   Event_show->Write();
   MPPC2D_xz->Write();
@@ -1646,6 +1700,22 @@ void DrawMPPCLightYield(int file_option = 1, double ADC_cut = fADCCut){
 // ------------------------------------------------
 // Auxiliary functions used in GeneralAnalysis_ZXY.cpp
 // ------------------------------------------------
+
+// Set the plot label the title
+template <class T>
+void SetHistoSettings(T *h){
+ 
+  h->GetXaxis()->SetLabelSize(0.04);
+  h->GetXaxis()->SetTitleSize(0.04);
+  h->GetXaxis()->SetTitleOffset(1.4);
+  h->GetYaxis()->SetLabelSize(0.04);
+  h->GetYaxis()->SetTitleSize(0.04);
+  h->GetYaxis()->SetTitleOffset(1.4);
+  h->GetZaxis()->SetLabelSize(0.04);
+  h->GetZaxis()->SetTitleSize(0.04);
+  h->GetZaxis()->SetTitleOffset(1.4);
+
+}
 
 // Get the channel number of nearby channels (do not consider diagonal channels)
 TLorentzVector GetNearbyChannel(int i){
