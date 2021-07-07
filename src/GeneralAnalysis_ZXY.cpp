@@ -130,6 +130,127 @@ double fMPPCGain[2][18] = {
 
 // ----------------------------------------
 
+// Estimate new board noise per channel
+void NoiseEstimation(){
+
+  std::string fin_name;
+  bool swap, newswap;
+  
+  // Set input file name
+  fin_name = "../../inputs/Pedestal_NewBoard.root";
+  swap = false;
+  newswap = false;
+  
+  TreeManager filereader(fin_name);
+  Mppc *data = filereader.tmCD();
+
+  int n_event = data->GetInputTree()->GetEntries();
+  
+  std::cout << "Total number of events: " << n_event << std::endl;
+  
+  int fChanMapChoice = 2;
+
+  int chan_order[fChanNum];
+  for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
+  
+  TH1D *noise_esti[fChanNum];
+  TString name;
+  for(int i = 0; i < fChanNum; i++){
+    name.Form("channel%i_noise",chan_order[i]);
+    noise_esti[i] = new TH1D(name,name,100,1,400);
+    noise_esti[i]->GetXaxis()->SetTitle("Estimated noise level / ADC");
+    noise_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
+    noise_esti[i]->GetXaxis()->SetLabelSize(0.04);
+    noise_esti[i]->GetXaxis()->SetTitleSize(0.04);
+    noise_esti[i]->GetYaxis()->SetLabelSize(0.04);
+    noise_esti[i]->GetYaxis()->SetTitleSize(0.04);
+    noise_esti[i]->GetYaxis()->SetTitleOffset(1.4);
+    noise_esti[i]->SetTitle(name);
+    noise_esti[i]->SetLineWidth(2);
+    noise_esti[i]->SetLineColor(kBlue);
+  } 
+
+  std::cout << "Start to estimate noise level" << std::endl;
+  for(int n = 0; n < n_event; n++){
+
+    data->GetMppc(n,swap,newswap);
+
+    for(int i = 0; i < fChanNum; i++){
+      noise_esti[i]->Fill(data->ADC(chan_order[i]-1));
+    }
+
+  }
+ 
+  // Print the noise level
+  std::cout << endl;
+  std::cout << "Noise per channel: {";
+  for(int i = 0; i < fChanNum; i++){
+    std::cout << noise_esti[i]->GetMean() << ", ";
+  }
+  std::cout << "}" << endl;
+  
+  TText *pl_name = new TText();
+  pl_name->SetTextSize(0.04);
+  TText *pl_mean = new TText();
+  pl_mean->SetTextSize(0.03);
+  TText *pl_rms = new TText();
+  pl_rms->SetTextSize(0.03);
+
+  double st_left = 0.55;
+  double st_top = 0.7;
+  pl_mean->SetTextSize(0.04);
+  pl_rms->SetTextSize(0.04);
+
+  // MPPC Face 1 + 3
+  TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
+  c4->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c4->cd(i+1);
+    noise_esti[i]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_esti[i]->GetMean());
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_esti[i]->GetRMS());
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //gPad->SetLogy();
+  }
+  c4->Update();
+
+  // MPPC Face 2 + 4
+  TCanvas *c5 = new TCanvas("noise_yz","noise_yz",1200,1200);
+  c5->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c5->cd(i+1);
+    noise_esti[i+9]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_esti[i+9]->GetMean());
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_esti[i+9]->GetRMS());
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //gPad->SetLogy();
+  }
+  c5->Update();
+  
+  TString prefix = "../../../plots/scintillator_cube/";
+  TString type = "noise_newboard/";
+  TString suffix;
+
+  suffix = prefix + type + "noise_xz.png";
+  c4->SaveAs(suffix);
+  
+  suffix = prefix + type + "noise_yz.png";
+  c5->SaveAs(suffix);
+
+  TString fout_name = "../../results/Noise_NewBoard.root";
+
+  TFile *fout = new TFile(fout_name.Data(),"recreate");
+  fout->cd();
+ 
+  c4->Write();
+  c5->Write();
+  
+  fout->Close();
+
+}
+
 // General cube crosstalk analysis
 void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
@@ -435,14 +556,14 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   // Noise distribution fit range (only consider the first peak)
   // Currently only used for SFGD new board data
-  double noise_fitlow[fChanNum] = {100,90,83,73,77,54,87,30,83,73,92,83,54,80,79,72,89,79};
-  double noise_fitupp[fChanNum] = {154,131,135,129,122,125,143,91,156,136,140,150,125,131,153,140,140,146};
+  //double noise_fitlow[fChanNum] = {100,90,83,73,77,54,87,30,83,73,92,83,54,80,79,72,89,79};
+  //double noise_fitupp[fChanNum] = {154,131,135,129,122,125,143,91,156,136,140,150,125,131,153,140,140,146};
 
   double mean_temp, rms_temp;
-  double noise_mean[fChanNum];
+  double noise_mean[fChanNum] = {145.701, 131.11, 129.348, 120.534, 122.704, 131.54, 138.363, 100.357, 123.285, 128.733, 137.05, 137.565, 116.265, 127.106, 144.041, 133.288, 135.219, 132.107};
   double noise_rms[fChanNum];
   TF1 *fit_func[fChanNum];
-  for(int i = 0; i < fChanNum; i++){
+  /*for(int i = 0; i < fChanNum; i++){
 
     // First check whether the histogram is empty
     if(!((noise_esti[i]->Integral())>0)){
@@ -466,7 +587,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
       noise_rms[i] = rms_temp; 
     //}
    
-  }
+  }*/
   std::cout << "Noise level estimation done" << std::endl;
 
   // Estimate the crosstalk fraction
@@ -493,8 +614,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
     if(CheckTrackVertical(cube_array)!=true) continue;
 
     // Only select the edge tracks
-    double dis = pow(cube_array[1].X()-1,2) + pow(cube_array[1].Y()-1,2);
-    if(dis!=1.) continue;
+    //double dis = pow(cube_array[1].X()-1,2) + pow(cube_array[1].Y()-1,2);
+    //if(dis!=1.) continue;
 
     // Estimate the crosstalk rate (loop over all 3 layers)
     for(int layer = 0; layer < 3; layer++){
@@ -684,7 +805,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   std::cout << "Crosstalk rate estimation done" << std::endl;
 
   // Fit the crosstalk distribution with Landau function
-  double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
+  /*double range_low = xtalk_rate->GetMean() - 2 * xtalk_rate->GetRMS();
   double range_upp = xtalk_rate->GetMean() + 4 * xtalk_rate->GetRMS();
   xtalk_rate->Fit("landau","","",range_low,range_upp);
   TF1 *fitfunc_xtalk = xtalk_rate->GetFunction("landau");
@@ -699,7 +820,35 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double rms_ex = fitfunc_xtalk->GetParameter(2);
 
   std::cout << "Crosstalk rate MPV (ADC): " << mean << endl;
-  std::cout << "Crosstalk rate MPV (p.e.): " << mean_ex << endl;
+  std::cout << "Crosstalk rate MPV (p.e.): " << mean_ex << endl;*/
+
+  // Use the overall mean to estimate average crosstalk
+  double xtalk_mean[fChanNum];
+  double trk_mean[fChanNum];
+  double xtalk_temp;
+  
+  for(int i = 0; i < fChanNum; i++){
+    xtalk_mean[i] = xtalk_adc[i]->GetMean();
+    trk_mean[i] = track_adc[i]->GetMean();
+  }
+
+  for(int i = 0; i < fChanNum; i++){
+    if(trk_mean[i]<=0) continue;
+    
+    TLorentzVector nearby_temp = GetNearbyChannel(fChanOrder[fChanMapChoice-1][i]);
+    // Left
+    if(nearby_temp.X()>0){
+      int index = ReturnIndex(nearby_temp.X());
+      xtalk_temp = ((xtalk_mean[index] - noise_mean[index]) / ADCgain[index]) / ((trk_mean[i] - noise_mean[i]) / ADCgain[i]) * 100;
+      std::cout << "Average crosstalk (xtalk chan = " << index << ", trk chan = " << i << "): " << xtalk_temp << endl;
+    }
+    // Right
+    if(nearby_temp.Z()>0){
+      int index = ReturnIndex(nearby_temp.Z());
+      xtalk_temp = ((xtalk_mean[index] - noise_mean[index]) / ADCgain[index]) / ((trk_mean[i] - noise_mean[i]) / ADCgain[i]) * 100;
+      std::cout << "Average crosstalk (xtalk chan = " << index << ", trk chan = " << i << "): " << xtalk_temp << endl;
+    }
+  }
 
   TText *pl_name = new TText();
   pl_name->SetTextSize(0.04);
@@ -892,6 +1041,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c6->cd(i+1);
     xtalk_esti[i]->Draw("hist");
+    if(file_option==1 || file_option==4) gPad->SetLogy();
   }
   c6->Update();
   
@@ -901,6 +1051,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   for(int i = 0; i < 9; i++){
     c7->cd(i+1);
     xtalk_esti[i+9]->Draw("hist");
+    if(file_option==1 || file_option==4) gPad->SetLogy();
   }
   c7->Update();
 
