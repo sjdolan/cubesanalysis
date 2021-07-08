@@ -40,10 +40,10 @@ std::string fin_name = "../../inputs/3dprinted_cubes/3DPrintCubes_NewBoard.root"
 const int fChanNum = 9; // 3*3 matrix
 int fChanOrder[fChanNum] = {15,17,19,21,23,25,27,29,31}; // 3*3 matrix channel number
 
-double f13TopChanOrder[3] = {4,2,6}; // Channel number for trigger cubes
-double f13DownChanOrder[3] = {3,1,5};
-double f24TopChanOrder[3] = {12,14,8};
-double f24DownChanOrder[3] = {11,13,7};
+double f13TopChanOrder[3] = {8,14,12}; // Channel number for trigger cubes
+double f13DownChanOrder[3] = {7,13,11};
+double f24TopChanOrder[3] = {6,2,4};
+double f24DownChanOrder[3] = {5,1,3};
 
 const double fADCCut = 500;
 
@@ -534,25 +534,25 @@ TVector3 GetTopChanPos(int chan){
 TVector3 GetTrigChanPos(int x, int y){
 
   TVector3 pos;
-  
-  if(x==3 && y==11) pos.SetXYZ(0,0,0);
-  else if(x==3 && y==13) pos.SetXYZ(0,1,0);
-  else if(x==3 && y==7) pos.SetXYZ(0,2,0);
-  else if(x==1 && y==11) pos.SetXYZ(1,0,0);
-  else if(x==1 && y==13) pos.SetXYZ(1,1,0);
-  else if(x==1 && y==7) pos.SetXYZ(1,2,0);
-  else if(x==5 && y==11) pos.SetXYZ(2,0,0);
-  else if(x==5 && y==13) pos.SetXYZ(2,1,0);
-  else if(x==5 && y==7) pos.SetXYZ(2,2,0);
-  else if(x==4 && y==12) pos.SetXYZ(0,0,2);
-  else if(x==4 && y==14) pos.SetXYZ(0,1,2);
-  else if(x==4 && y==8) pos.SetXYZ(0,2,2);
-  else if(x==2 && y==12) pos.SetXYZ(1,0,2);
-  else if(x==2 && y==14) pos.SetXYZ(1,1,2);
-  else if(x==2 && y==8) pos.SetXYZ(1,2,2);
-  else if(x==6 && y==12) pos.SetXYZ(2,0,2);
-  else if(x==6 && y==14) pos.SetXYZ(2,1,2);
-  else if(x==6 && y==8) pos.SetXYZ(2,2,2);
+ 
+  if(x==7 && y==5) pos.SetXYZ(0,0,0);
+  else if(x==7 && y==1) pos.SetXYZ(0,1,0);
+  else if(x==7 && y==3) pos.SetXYZ(0,2,0);
+  else if(x==13 && y==5) pos.SetXYZ(1,0,0);
+  else if(x==13 && y==1) pos.SetXYZ(1,1,0);
+  else if(x==13 && y==3) pos.SetXYZ(1,2,0);
+  else if(x==11 && y==5) pos.SetXYZ(2,0,0);
+  else if(x==11 && y==1) pos.SetXYZ(2,1,0);
+  else if(x==11 && y==3) pos.SetXYZ(2,2,0);
+  else if(x==8 && y==6) pos.SetXYZ(0,0,2);
+  else if(x==8 && y==2) pos.SetXYZ(0,1,2);
+  else if(x==8 && y==4) pos.SetXYZ(0,2,2);
+  else if(x==14 && y==6) pos.SetXYZ(1,0,2);
+  else if(x==14 && y==2) pos.SetXYZ(1,1,2);
+  else if(x==14 && y==4) pos.SetXYZ(1,2,2);
+  else if(x==12 && y==6) pos.SetXYZ(2,0,2);
+  else if(x==12 && y==2) pos.SetXYZ(2,1,2);
+  else if(x==12 && y==4) pos.SetXYZ(2,2,2); 
   else pos.SetXYZ(-1,-1,-1);
 
   return pos;
