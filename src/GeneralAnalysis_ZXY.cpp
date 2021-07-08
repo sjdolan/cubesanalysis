@@ -154,6 +154,7 @@ void NoiseEstimation(){
   for(int i = 0; i < fChanNum; i++) chan_order[i] = fChanOrder[fChanMapChoice-1][i];
   
   TH1D *noise_esti[fChanNum];
+  TH1D *noise_subt[fChanNum];
   TString name;
   for(int i = 0; i < fChanNum; i++){
     name.Form("channel%i_noise",chan_order[i]);
@@ -168,6 +169,19 @@ void NoiseEstimation(){
     noise_esti[i]->SetTitle(name);
     noise_esti[i]->SetLineWidth(2);
     noise_esti[i]->SetLineColor(kBlue);
+
+    name.Form("channel%i_noisesubtract",chan_order[i]);
+    noise_subt[i] = new TH1D(name,name,100,-200,200);
+    noise_subt[i]->GetXaxis()->SetTitle("Noise - mean noise / ADC");
+    noise_subt[i]->GetYaxis()->SetTitle("Number of events / bin");
+    noise_subt[i]->GetXaxis()->SetLabelSize(0.04);
+    noise_subt[i]->GetXaxis()->SetTitleSize(0.04);
+    noise_subt[i]->GetYaxis()->SetLabelSize(0.04);
+    noise_subt[i]->GetYaxis()->SetTitleSize(0.04);
+    noise_subt[i]->GetYaxis()->SetTitleOffset(1.4);
+    noise_subt[i]->SetTitle(name);
+    noise_subt[i]->SetLineWidth(2);
+    noise_subt[i]->SetLineColor(kBlue);
   } 
 
   std::cout << "Start to estimate noise level" << std::endl;
@@ -181,6 +195,19 @@ void NoiseEstimation(){
 
   }
  
+  double noise_mean[fChanNum];
+  for(int i = 0; i < fChanNum; i++) noise_mean[i] = noise_esti[i]->GetMean();
+
+  for(int n = 0; n < n_event; n++){
+
+    data->GetMppc(n,swap,newswap);
+
+    for(int i = 0; i < fChanNum; i++){
+      noise_subt[i]->Fill(data->ADC(chan_order[i]-1)-noise_mean[i]);
+    }
+
+  }
+
   // Print the noise level
   std::cout << endl;
   std::cout << "Noise per channel: {";
@@ -201,51 +228,83 @@ void NoiseEstimation(){
   pl_mean->SetTextSize(0.04);
   pl_rms->SetTextSize(0.04);
 
+  // Noise level
   // MPPC Face 1 + 3
-  TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
-  c4->Divide(3,3);
+  TCanvas *c1 = new TCanvas("noise_xz","noise_xz",1200,1200);
+  c1->Divide(3,3);
   for(int i = 0; i < 9; i++){
-    c4->cd(i+1);
+    c1->cd(i+1);
     noise_esti[i]->Draw("hist");
     name.Form("Overall mean = %f ADC",noise_esti[i]->GetMean());
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_esti[i]->GetRMS());
     pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
-    //gPad->SetLogy();
   }
-  c4->Update();
+  c1->Update();
 
   // MPPC Face 2 + 4
-  TCanvas *c5 = new TCanvas("noise_yz","noise_yz",1200,1200);
-  c5->Divide(3,3);
+  TCanvas *c2 = new TCanvas("noise_yz","noise_yz",1200,1200);
+  c2->Divide(3,3);
   for(int i = 0; i < 9; i++){
-    c5->cd(i+1);
+    c2->cd(i+1);
     noise_esti[i+9]->Draw("hist");
     name.Form("Overall mean = %f ADC",noise_esti[i+9]->GetMean());
     pl_mean->DrawTextNDC(st_left,st_top,name);
     name.Form("Overall RMS = %f ADC",noise_esti[i+9]->GetRMS());
     pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
-    //gPad->SetLogy();
   }
-  c5->Update();
+  c2->Update();
   
+  // Channel ADC after noise subtraction
+  TCanvas *c3 = new TCanvas("noisesubtrac_xz","noisesubtrac_xz",1200,1200);
+  c3->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c3->cd(i+1);
+    noise_subt[i]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_subt[i]->GetMean());
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_subt[i]->GetRMS());
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+  }
+  c3->Update();
+
+  TCanvas *c4 = new TCanvas("noisesubtract_yz","noisesubtrac_yz",1200,1200);
+  c4->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c4->cd(i+1);
+    noise_subt[i+9]->Draw("hist");
+    name.Form("Overall mean = %f ADC",noise_subt[i+9]->GetMean());
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+    name.Form("Overall RMS = %f ADC",noise_subt[i+9]->GetRMS());
+    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+  }
+  c4->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = "noise_newboard/";
   TString suffix;
 
   suffix = prefix + type + "noise_xz.png";
-  c4->SaveAs(suffix);
+  c1->SaveAs(suffix);
   
   suffix = prefix + type + "noise_yz.png";
-  c5->SaveAs(suffix);
+  c2->SaveAs(suffix);
+
+  suffix = prefix + type + "noisesubtrac_xz.png";
+  c3->SaveAs(suffix);
+
+  suffix = prefix + type + "noisesubtrac_yz.png";
+  c4->SaveAs(suffix);
 
   TString fout_name = "../../results/Noise_NewBoard.root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
  
+  c1->Write();
+  c2->Write();
+  c3->Write();
   c4->Write();
-  c5->Write();
   
   fout->Close();
 
@@ -318,6 +377,16 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   TH1D *comp_xtalkfrac = (TH1D*)xtalk_rate->Clone("comp_xtalkfrac");
   TH1D *comp_noisefrac = (TH1D*)xtalk_rate->Clone("comp_noisefrac");
+
+  TH1D *xtalk_all_pe = new TH1D("xtalk_all_pe","xtalk_all_pe",60,-15,15);
+  xtalk_all_pe->GetXaxis()->SetTitle("Crosstalk fraction / %");
+  xtalk_all_pe->GetYaxis()->SetTitle("Number of events / bin");
+  xtalk_all_pe->GetXaxis()->SetLabelSize(0.05);
+  xtalk_all_pe->GetXaxis()->SetTitleSize(0.05);
+  xtalk_all_pe->GetYaxis()->SetLabelSize(0.05);
+  xtalk_all_pe->GetYaxis()->SetTitleSize(0.05);
+  xtalk_all_pe->GetYaxis()->SetTitleOffset(1.4);
+  xtalk_all_pe->SetTitle("");
 
   // Overall crosstalk rate (with P.E. from gain)
   TH1D *xtalk_rate_pe = (TH1D*)xtalk_rate->Clone("xtalk_rate_pe");
@@ -740,6 +809,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         if(layer==1){
           double trk_pe = (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
           double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
+          xtalk_all_pe->Fill(xtalk_frac);
           if(xtalk_pe<=0) xtalk_pe = 0;
           test_2d->Fill(trk_pe,xtalk_pe);
           if(xtalk_frac>=0) xtalk_rate_pe->Fill(xtalk_frac);
@@ -786,6 +856,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         if(layer==1){
           double trk_pe = (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
           double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
+          xtalk_all_pe->Fill(xtalk_frac);
           if(xtalk_pe<=0) xtalk_pe = 0;
           test_2d->Fill(trk_pe,xtalk_pe);
           if(xtalk_frac>=0) xtalk_rate_pe->Fill(xtalk_frac);
@@ -956,6 +1027,21 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   if(file_option==1 || file_option==4) gPad->SetLogy();
   c1ex->Update();
 
+  TCanvas *c1ex_all = new TCanvas("xtalk_all_pe","xtalk_all_pe",700,600);
+  c1ex_all->SetLeftMargin(0.15);
+  c1ex_all->cd();
+  xtalk_all_pe->SetLineWidth(2);
+  xtalk_all_pe->SetLineColor(kRed);
+  xtalk_all_pe->Draw("hist");
+  
+  name.Form("Crosstalk fraction:");
+  pl_name->DrawTextNDC(0.5,0.68,name);
+  name.Form("Mean = %f",xtalk_all_pe->GetMean());
+  pl_mean->DrawTextNDC(0.5,0.61,name);
+  gPad->SetGridx();
+  gPad->SetGridy();
+  c1ex_all->Update();
+
   TCanvas *c2 = new TCanvas("cubely_comp","cubely_comp",700,600);
   c2->SetLeftMargin(0.15);
   c2->cd();
@@ -1123,6 +1209,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   suffix = prefix + type + "xtalk_rate_pe.pdf";
   c1ex->SaveAs(suffix);
 
+  suffix = prefix + type + "xtalk_all_pe.png";
+  c1ex_all->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalk_all_pe.pdf";
+  c1ex_all->SaveAs(suffix);
+
   suffix = prefix + type + "cubely_comp.png";
   c2->SaveAs(suffix);
 
@@ -1166,6 +1258,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c0ex->Write();
   c1->Write();
   c1ex->Write();
+  c1ex_all->Write();
   c2->Write();
   //c3->Write();
   c4->Write();
@@ -1180,6 +1273,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
   xtalk_rate->Write();
   xtalk_rate_pe->Write();
+  xtalk_all_pe->Write();
   trkcube_ly->Write();
   beicube_ly->Write();
   //noise_esti->Write();
