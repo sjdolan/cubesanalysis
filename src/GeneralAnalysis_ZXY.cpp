@@ -130,6 +130,32 @@ double fMPPCGain[2][18] = {
 
 // ----------------------------------------
 
+double GetHistoMedian(TH1D *h){
+
+  int n_bin = h->GetNbinsX();
+  
+  double sum;
+  double C = h->Integral() / 2.;
+  
+  double med = 0;
+  
+  for(int i = 0; i < n_bin-1; i++){
+
+    sum += h->GetBinContent(i+1);
+    if(sum<=C && (sum+h->GetBinContent(i+2))>C){
+      double A = h->GetBinCenter(i+1);
+      double B = h->GetBinCenter(i+2);
+      double C_A = sum;
+      double C_B = sum + h->GetBinContent(i+2);
+      med = A + (B - A) * (C - C_A) / (C_B - C_A);
+    }
+
+  }
+
+  return med;
+
+}
+
 // Estimate new board noise per channel
 void NoiseEstimation(){
 
@@ -212,7 +238,8 @@ void NoiseEstimation(){
   std::cout << endl;
   std::cout << "Noise per channel: {";
   for(int i = 0; i < fChanNum; i++){
-    std::cout << noise_esti[i]->GetMean() << ", ";
+    //std::cout << noise_esti[i]->GetMean() << ", ";
+    std::cout << GetHistoMedian(noise_esti[i]) << ", ";
   }
   std::cout << "}" << endl;
   
@@ -357,6 +384,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   double cubely_bei[4];
   double cubenoise_bei[4];
   double cubegain_bei[4];
+  int index_bei[4];
   double xtalk_frac;
   double noise_frac;
   double noise_temp;
@@ -487,6 +515,34 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   test_2d->GetXaxis()->SetTitle("Track channel / p.e.");
   test_2d->GetYaxis()->SetTitle("Crosstalk channel / p.e.");
   test_2d->SetTitle("");
+
+  // 1D plot, xtalk rate and track channel p.e.
+  TH1D *test_1d_xtalk = new TH1D("test_1d_xtalk","test_1d_xtalk",60,-10,10);
+  test_1d_xtalk->GetXaxis()->SetTitle("Number of p.e.");
+  test_1d_xtalk->GetYaxis()->SetTitle("Number of events / bin");
+  test_1d_xtalk->SetTitle("");
+  
+  TH1D *test_1d_trk = new TH1D("test_1d_trk","test_1d_trk",60,0,120);
+  test_1d_trk->GetXaxis()->SetTitle("Number of p.e.");
+  test_1d_trk->GetYaxis()->SetTitle("Number of events / bin");
+  test_1d_trk->SetTitle("");
+
+  TH1D *txtalk_pe[fChanNum];
+  TH1D *ttrk_pe[fChanNum];
+  
+  for(int i = 0; i < fChanNum; i++){
+
+    name.Form("channel%i_xtalkpe",chan_order[i]);
+    txtalk_pe[i] = new TH1D(name,name,60,-10,10);
+    txtalk_pe[i]->GetXaxis()->SetTitle("Number of p.e.");
+    txtalk_pe[i]->GetYaxis()->SetTitle("Number of events / bin");
+    
+    name.Form("channel%i_trkpe",chan_order[i]);
+    ttrk_pe[i] = new TH1D(name,name,60,0,120);
+    ttrk_pe[i]->GetXaxis()->SetTitle("Number of p.e.");
+    ttrk_pe[i]->GetYaxis()->SetTitle("Number of events / bin");  
+
+  }
 
   // Estimate the noise level in order to subtract it
   std::cout << "Start to estimate noise level" << std::endl;
@@ -629,7 +685,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //double noise_fitupp[fChanNum] = {154,131,135,129,122,125,143,91,156,136,140,150,125,131,153,140,140,146};
 
   double mean_temp, rms_temp;
-  double noise_mean[fChanNum] = {145.701, 131.11, 129.348, 120.534, 122.704, 131.54, 138.363, 100.357, 123.285, 128.733, 137.05, 137.565, 116.265, 127.106, 144.041, 133.288, 135.219, 132.107};
+  double noise_mean[fChanNum] = {143.804, 129.154, 127.567, 118.763, 120.529, 129.701, 136.204, 98.8112, 121.433, 126.936, 135.251, 135.76, 114.491, 125.016, 142.332, 131.114, 133.201, 130.309};
   double noise_rms[fChanNum];
   TF1 *fit_func[fChanNum];
   /*for(int i = 0; i < fChanNum; i++){
@@ -749,6 +805,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         cubely_bei[i] = 0;
         cubenoise_bei[i] = 0;
         cubegain_bei[i] = 0;
+        index_bei[i] = -1;
         continue;
       } 
 
@@ -757,7 +814,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         index_temp = ReturnIndex(int(cubechan_bei[i].Y()));
         cubenoise_bei[i] = noise_mean[index_temp]; // Estimate noise level per channel
         cubegain_bei[i] = ADCgain[index_temp]; // Use gain per channel     
-        xtalk_adc[index_temp]->Fill(data->ADC(int(cubechan_bei[i].Y())-1));   
+        xtalk_adc[index_temp]->Fill(data->ADC(int(cubechan_bei[i].Y())-1)); 
+        index_bei[i] = index_temp;  
       }
       else if(cubechan_bei[i].Y()==cubechan_cen.Y()){      
         cubely_bei[i] = data->ADC(int(cubechan_bei[i].X())-1);
@@ -765,6 +823,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         cubenoise_bei[i] = noise_mean[index_temp]; // Estimate noise level per channel
         cubegain_bei[i] = ADCgain[index_temp]; // Use gain per channel
         xtalk_adc[index_temp]->Fill(data->ADC(int(cubechan_bei[i].X())-1));
+        index_bei[i] = index_temp;
       }
     }
 
@@ -810,6 +869,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
           double trk_pe = (data->ADC(int(cubechan_cen.Y())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
           double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
           xtalk_all_pe->Fill(xtalk_frac);
+          test_1d_xtalk->Fill(xtalk_pe);
+          test_1d_trk->Fill(trk_pe);
+          txtalk_pe[index_bei[i]]->Fill(xtalk_pe);
+          ttrk_pe[index_temp]->Fill(trk_pe);
           if(xtalk_pe<=0) xtalk_pe = 0;
           test_2d->Fill(trk_pe,xtalk_pe);
           if(xtalk_frac>=0) xtalk_rate_pe->Fill(xtalk_frac);
@@ -856,6 +919,10 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         if(layer==1){
           double trk_pe = (data->ADC(int(cubechan_cen.X())-1) - noise_mean[index_temp]) / ADCgain[index_temp];
           double xtalk_pe = (cubely_bei[i] - cubenoise_bei[i]) / cubegain_bei[i];
+          test_1d_xtalk->Fill(xtalk_pe);
+          test_1d_trk->Fill(trk_pe);
+          txtalk_pe[index_bei[i]]->Fill(xtalk_pe);
+          ttrk_pe[index_temp]->Fill(trk_pe);
           xtalk_all_pe->Fill(xtalk_frac);
           if(xtalk_pe<=0) xtalk_pe = 0;
           test_2d->Fill(trk_pe,xtalk_pe);
@@ -1187,6 +1254,60 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   test_2d->Draw("colz");
   c12->Update();
 
+  TCanvas *c13 = new TCanvas("test_1d_xtalk","test_1d_xtalk",700,600);
+  c13->SetLeftMargin(0.15);
+  c13->cd();
+  test_1d_xtalk->SetLineWidth(2);
+  test_1d_xtalk->SetLineColor(kRed);
+  test_1d_xtalk->Draw("hist same");
+  c13->Update();
+
+  TCanvas *c14 = new TCanvas("test_1d_trk","test_1d_trk",700,600);
+  c14->SetLeftMargin(0.15);
+  c14->cd();
+  test_1d_trk->SetLineWidth(2);
+  test_1d_trk->SetLineColor(kRed);
+  test_1d_trk->Draw("hist same");
+  c14->Update();
+
+  // Xtalk in p.e.
+  // Face 1 + 3
+  TCanvas *c15 = new TCanvas("xtalkpe_xz","xtalkpe_xz",1200,1200);
+  c15->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c15->cd(i+1);
+    txtalk_pe[i]->Draw("hist");
+  }
+  c15->Update();
+  
+  // Face 2 + 4
+  TCanvas *c16 = new TCanvas("xtalkpe_yz","xtalkpe_yz",1200,1200);
+  c16->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c16->cd(i+1);
+    txtalk_pe[i+9]->Draw("hist");
+  }
+  c16->Update();
+
+  // Trk in p.e.
+  // Face 1 + 3
+  TCanvas *c17 = new TCanvas("trkpe_xz","trkpe_xz",1200,1200);
+  c17->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c17->cd(i+1);
+    ttrk_pe[i]->Draw("hist");
+  }
+  c17->Update();
+  
+  // Face 2 + 4
+  TCanvas *c18 = new TCanvas("trkpe_yz","trkpe_yz",1200,1200);
+  c18->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c18->cd(i+1);
+    ttrk_pe[i+9]->Draw("hist");
+  }
+  c18->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = fPathName[file_option-1] + "/";
   TString suffix;
@@ -1248,6 +1369,24 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   suffix = prefix + type + "test_2d.png";
   c12->SaveAs(suffix);
 
+  suffix = prefix + type + "test_1d_xtalk.png";
+  c13->SaveAs(suffix);
+  
+  suffix = prefix + type + "test_1d_trk.png";
+  c14->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalkpe_xz.png";
+  c15->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalkpe_yz.png";
+  c16->SaveAs(suffix);
+
+  suffix = prefix + type + "trkpe_xz.png";
+  c17->SaveAs(suffix);
+
+  suffix = prefix + type + "trkpe_yz.png";
+  c18->SaveAs(suffix);
+
   // Save the plots into output file
   TString fout_name = "../../results/CrosstalkAnalysis_" + fOutFileName[file_option-1] + ".root";
 
@@ -1270,6 +1409,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c10->Write();
   c11->Write();
   c12->Write();
+  c13->Write();
+  c14->Write();
+  c15->Write();
+  c16->Write();
+  c17->Write();
+  c18->Write();
 
   xtalk_rate->Write();
   xtalk_rate_pe->Write();
@@ -1286,6 +1431,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   }
 
   test_2d->Write();
+  test_1d_xtalk->Write();
+  test_1d_trk->Write();
 
   fout->Close();
 
