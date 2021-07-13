@@ -333,6 +333,8 @@ void NoiseEstimation(){
   c3->Write();
   c4->Write();
   
+  for(int i = 0; i < fChanNum; i++) noise_esti[i]->Write();
+  
   fout->Close();
 
 }
@@ -594,7 +596,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
     // Method 2: estimate noise level per channel
     // Loop over each channel, if the channel satisfies requirement, then fill the noise histogram
-    //if(fChanMapChoice==1){
+    if(fChanMapChoice==1){
       for(int i = 0; i < fChanNum; i++){
    
         // Channel ADC smaller than cut
@@ -625,11 +627,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         noise_ly->Fill(ADC_temp[i]);
 
       } // End of channel loop
-    //}
+    }
     
     // Method 3: estimate noise level per channel, but in a safer way
     // This applies to the new board data, because there is trigger to select the events
-    /*else if(fChanMapChoice==2){    
+    else if(fChanMapChoice==2){    
       // First match cubes at each layer, do not apply any cut
       cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
       if(cube_array.size()!=3) continue;
@@ -667,7 +669,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
           }
         }
       }
-    }*/
+    }
 
   }
 
@@ -1157,17 +1159,47 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   pl_mean->SetTextSize(0.04);
   pl_rms->SetTextSize(0.04);
  
+  // Read another noise distributions from another file
+  TFile *noise_file = new TFile("../../results/Noise_NewBoard.root","read");
+  noise_file->cd();
+  TH1D *noise_new[fChanNum];
+  for(int i = 0; i < fChanNum; i++){
+    name.Form("channel%i_noise",chan_order[i]);
+    noise_new[i] = (TH1D*)noise_file->Get(name);
+  }
+  
+  TString legend_list[2] = {"Pedestal with data (2021-7-3)","Pedestal with data (2021-7-1)"};
+ 
   // MPPC Face 1 + 3
   TCanvas *c4 = new TCanvas("noise_xz","noise_xz",1200,1200);
   c4->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
-    noise_esti[i]->Draw("hist");
+    noise_esti[i]->SetLineColor(kRed);
+    xtalk_adc[i]->SetLineColor(kGreen);
+    if(file_option==3){
+      noise_new[i]->DrawNormalized("hist");
+      noise_esti[i]->DrawNormalized("hist same"); 
+      xtalk_adc[i]->DrawNormalized("hist same");
+    }
+    else if(file_option==4){
+      xtalk_adc[i]->DrawNormalized("hist");
+      noise_new[i]->DrawNormalized("hist same");
+      noise_esti[i]->DrawNormalized("hist same"); 
+    }
+    TLegend *lg = new TLegend(0.5,0.6,0.89,0.87);
+    lg->SetLineWidth(0);
+    lg->SetFillStyle(0);
+    if(file_option==4) lg->AddEntry(noise_esti[i],legend_list[0],"l");
+    else if(file_option==3) lg->AddEntry(noise_esti[i],legend_list[1],"l");
+    lg->AddEntry(noise_new[i],"NewBoard_Pedestal.root","l");
+    lg->AddEntry(xtalk_adc[i],"Xtalk + pedestal","l");
+    lg->Draw("same");
     //if(file_option==3 && noise_mean[i]!=0) fit_func[i]->Draw("same");
-    name.Form("Overall mean = %f ADC",noise_mean[i]);
-    pl_mean->DrawTextNDC(st_left,st_top,name);
-    name.Form("Overall RMS = %f ADC",noise_rms[i]);
-    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //name.Form("Overall mean = %f ADC",noise_mean[i]);
+    //pl_mean->DrawTextNDC(st_left,st_top,name);
+    //name.Form("Overall RMS = %f ADC",noise_rms[i]);
+    //pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
     //gPad->SetLogy();
   }
   c4->Update();
@@ -1177,12 +1209,31 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c5->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c5->cd(i+1);
-    noise_esti[i+9]->Draw("hist");
+    noise_esti[i+9]->SetLineColor(kRed);
+    xtalk_adc[i+9]->SetLineColor(kGreen);
+    if(file_option==3){
+      noise_new[i+9]->DrawNormalized("hist");
+      noise_esti[i+9]->DrawNormalized("hist same"); 
+      xtalk_adc[i+9]->DrawNormalized("hist same");
+    }
+    else if(file_option==4){
+      xtalk_adc[i+9]->DrawNormalized("hist");
+      noise_new[i+9]->DrawNormalized("hist same");
+      noise_esti[i+9]->DrawNormalized("hist same"); 
+    }
+    TLegend *lg = new TLegend(0.5,0.6,0.89,0.87);
+    lg->SetLineWidth(0);
+    lg->SetFillStyle(0);
+    if(file_option==4) lg->AddEntry(noise_esti[i+9],legend_list[0],"l");
+    else if(file_option==3) lg->AddEntry(noise_esti[i+9],legend_list[1],"l");
+    lg->AddEntry(noise_new[i+9],"NewBoard_Pedestal.root","l");
+    lg->AddEntry(xtalk_adc[i+9],"Xtalk + pedestal","l");
+    lg->Draw("same");
     //if(file_option==3 && noise_mean[i]!=0) fit_func[i+9]->Draw("same");
-    name.Form("Overall mean = %f ADC",noise_mean[i+9]);
-    pl_mean->DrawTextNDC(st_left,st_top,name);
-    name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
-    pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
+    //name.Form("Overall mean = %f ADC",noise_mean[i+9]);
+    //pl_mean->DrawTextNDC(st_left,st_top,name);
+    //name.Form("Overall RMS = %f ADC",noise_rms[i+9]);
+    //pl_rms->DrawTextNDC(st_left,st_top-0.07,name);
     //gPad->SetLogy();
   }
   c5->Update();
@@ -1214,7 +1265,15 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c8->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c8->cd(i+1);
-    xtalk_adc[i]->Draw("hist");
+    xtalk_adc[i]->DrawNormalized("hist");
+    noise_esti[i]->SetLineColor(kRed);
+    noise_esti[i]->DrawNormalized("hist same");
+    TLegend *lg8 = new TLegend(0.6,0.68,0.89,0.87);
+    lg8->SetLineWidth(0);
+    lg8->SetFillStyle(0);
+    lg8->AddEntry(xtalk_adc[i],"Xtalk + pedestal","l");
+    lg8->AddEntry(noise_esti[i],"Pedestal only","l");
+    lg8->Draw("same");
   }
   c8->Update();
 
@@ -1223,7 +1282,15 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   c9->Divide(3,3);
   for(int i = 0; i < 9; i++){
     c9->cd(i+1);
-    xtalk_adc[i+9]->Draw("hist");
+    xtalk_adc[i+9]->DrawNormalized("hist");
+    noise_esti[i+9]->SetLineColor(kRed);
+    noise_esti[i+9]->DrawNormalized("hist same");
+    TLegend *lg9 = new TLegend(0.6,0.68,0.89,0.87);
+    lg9->SetLineWidth(0);
+    lg9->SetFillStyle(0);
+    lg9->AddEntry(xtalk_adc[i+9],"Xtalk + pedestal","l");
+    lg9->AddEntry(noise_esti[i+9],"Pedestal only","l");
+    lg9->Draw("same");
   }
   c9->Update();
 
