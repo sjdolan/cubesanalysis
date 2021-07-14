@@ -84,7 +84,7 @@ void CrosstalkAnalysis(){
     noise_esti[i]->SetLineColor(kBlue);
     
     name.Form("channel%i_xtalk",fChanOrder[i]);
-    xtalk_esti[i] = new TH1D(name,name,30,0,15);
+    xtalk_esti[i] = new TH1D(name,name,30,0,3);
     xtalk_esti[i]->GetXaxis()->SetTitle("Crosstalk fraction / %");
     xtalk_esti[i]->GetYaxis()->SetTitle("Number of events / bin");
     xtalk_esti[i]->GetXaxis()->SetLabelSize(0.04);
@@ -123,7 +123,7 @@ void CrosstalkAnalysis(){
     track_adc[i]->SetLineColor(kBlue);
   }
  
-  TH1D *xtalk_all = new TH1D("xtalk_rate","xtalk_rate",30,0,15);
+  TH1D *xtalk_all = new TH1D("xtalk_rate","xtalk_rate",30,0,3);
   xtalk_all->GetXaxis()->SetTitle("Crosstalk fraction / %");
   xtalk_all->GetYaxis()->SetTitle("Number of events / bin");
   xtalk_all->GetXaxis()->SetLabelSize(0.05);
@@ -132,6 +132,16 @@ void CrosstalkAnalysis(){
   xtalk_all->GetYaxis()->SetTitleSize(0.05);
   xtalk_all->GetYaxis()->SetTitleOffset(1.4);
   xtalk_all->SetTitle("");
+ 
+  TH1D *xtalk_allex = new TH1D("xtalk_rateex","xtalk_rateex",60,-3,3);
+  xtalk_allex->GetXaxis()->SetTitle("Crosstalk fraction / %");
+  xtalk_allex->GetYaxis()->SetTitle("Number of events / bin");
+  xtalk_allex->GetXaxis()->SetLabelSize(0.05);
+  xtalk_allex->GetXaxis()->SetTitleSize(0.05);
+  xtalk_allex->GetYaxis()->SetLabelSize(0.05);
+  xtalk_allex->GetYaxis()->SetTitleSize(0.05);
+  xtalk_allex->GetYaxis()->SetTitleOffset(1.4);
+  xtalk_allex->SetTitle("");
   
   // Estimate noise level
   std::cout << "Start to estimate noise level" << std::endl;
@@ -186,6 +196,7 @@ void CrosstalkAnalysis(){
     if(pass_tag!=true) continue;
 
     double cen_adc = data->ADC(fChanOrder[trk_index]-1);
+    if(cen_adc<400) continue;
     track_adc[trk_index]->Fill(cen_adc);
     
     TLorentzVector near_chan = GetNearbyChannel(fChanOrder[trk_index]);
@@ -198,6 +209,7 @@ void CrosstalkAnalysis(){
       near_adc = data->ADC(near_chan.X()-1);
       xtalk_adc[near_index]->Fill(near_adc);
       xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
       xtalk_all->Fill(xtalk_rate);
@@ -207,6 +219,7 @@ void CrosstalkAnalysis(){
       near_adc = data->ADC(near_chan.Y()-1);
       xtalk_adc[near_index]->Fill(near_adc);
       xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
       xtalk_all->Fill(xtalk_rate);
@@ -216,6 +229,7 @@ void CrosstalkAnalysis(){
       near_adc = data->ADC(near_chan.Z()-1);
       xtalk_adc[near_index]->Fill(near_adc);
       xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
       xtalk_all->Fill(xtalk_rate);
@@ -225,6 +239,7 @@ void CrosstalkAnalysis(){
       near_adc = data->ADC(near_chan.T()-1);
       xtalk_adc[near_index]->Fill(near_adc);
       xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
       xtalk_all->Fill(xtalk_rate);
@@ -243,6 +258,8 @@ void CrosstalkAnalysis(){
   double st_top = 0.7;
   pl_mean->SetTextSize(0.04);
   pl_rms->SetTextSize(0.04);
+  
+  gStyle->SetOptStat(0);
   
   TCanvas *c1 = new TCanvas("noise","noise",1200,1200);
   c1->Divide(3,3);
@@ -277,6 +294,7 @@ void CrosstalkAnalysis(){
   for(int i = 0; i < 9; i++){
     c4->cd(i+1);
     xtalk_esti[i]->Draw("hist");
+    gPad->SetLogy();
   }
   c4->Update();
   
@@ -296,7 +314,27 @@ void CrosstalkAnalysis(){
   pl_mean->DrawTextNDC(0.5,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
+  gPad->SetLogy();
   c5->Update();
+
+  TCanvas *c6 = new TCanvas("xtalk_allex","xtalk_allex",700,600);
+  c6->SetLeftMargin(0.15);
+  c6->cd();
+  xtalk_allex->SetLineWidth(2);
+  xtalk_allex->SetLineColor(kBlue);
+  //xtalk_allex->SetMarkerColor(kBlue);
+  //xtalk_allex->SetMarkerStyle(20);
+  //xtalk_allex->Draw("P E0");
+  xtalk_allex->Draw("hist");
+
+  name.Form("Crosstalk fraction:");
+  pl_name->DrawTextNDC(0.5,0.68,name);
+  name.Form("Mean = %f",xtalk_allex->GetMean());
+  pl_mean->DrawTextNDC(0.5,0.61,name);
+  gPad->SetGridx();
+  gPad->SetGridy();
+  gPad->SetLogy();
+  c6->Update();
   
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = "3dprintcubes_newboard/";;
@@ -320,6 +358,12 @@ void CrosstalkAnalysis(){
   suffix = prefix + type + "xtalk_all.pdf";
   c5->SaveAs(suffix);
 
+  suffix = prefix + type + "xtalk_allex.png";
+  c6->SaveAs(suffix);
+
+  suffix = prefix + type + "xtalk_allex.pdf";
+  c6->SaveAs(suffix);
+
   TString fout_name = "../../results/CrosstalkAnalysis_3DPrintCube_NewBoard.root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -330,6 +374,7 @@ void CrosstalkAnalysis(){
   c3->Write();
   c4->Write();
   c5->Write();
+  c6->Write();
   
   for(int i = 0; i < fChanNum; i++){
     noise_esti[i]->Write();
@@ -339,6 +384,7 @@ void CrosstalkAnalysis(){
   }
  
   xtalk_all->Write();
+  xtalk_allex->Write();
 
   fout->Close();  
 
@@ -494,8 +540,8 @@ std::tuple<bool,int> CheckEventCosmicVertical(Mppc *data){
   // Step 4: Check the track is vertical
   bool ver_tag;
   
-  if(top_pos.X()==midd_pos.X() && midd_pos.X()==down_pos.X() &&
-     top_pos.Y()==midd_pos.Y() && midd_pos.Y()==down_pos.Y()) ver_tag = true;
+  if(/*top_pos.X()==midd_pos.X() &&*/ midd_pos.X()==down_pos.X() &&
+     /*top_pos.Y()==midd_pos.Y() &&*/ midd_pos.Y()==down_pos.Y()) ver_tag = true;
   else ver_tag = false;
   
   // Step 5: The trigger channel ADC should be larger than a threshold
