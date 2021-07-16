@@ -64,7 +64,8 @@ const int fFileNum = 4;
 std::string fFileName[fFileNum] = {"glued_cubes/GluedCubes_OldBoard", // May 18, 19 and June 4
 "sfgd_cubes/SFGDCubes_OldBoard", // May 4 - 7
 "sfgd_cubes/SFGDCubes_NewBoard", // June 5, 7 - 9
-"glued_cubes/GluedCubes_NewBoard" // June 10, 11
+//"glued_cubes/GluedCubes_NewBoard" // June 10, 11
+"glued_cubes/Calibration_GluedCubes_NewBoard_OR32_03July2021"
 };
 
 // Output file names array
@@ -163,7 +164,7 @@ void NoiseEstimation(){
   bool swap, newswap;
   
   // Set input file name
-  fin_name = "../../inputs/Pedestal_NewBoard.root";
+  fin_name = "../../inputs/glued_cubes/Pedestal_GluedCubes_NewBoard_14July2021.root";
   swap = false;
   newswap = false;
   
@@ -396,8 +397,8 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Create some histograms
   // Overall crosstalk rate (with ADC)
   TH1D *xtalk_rate = new TH1D("xtalk_rate","xtalk_rate",30,0,15);
-  xtalk_rate->GetXaxis()->SetTitle("Crosstalk fraction / %");
-  xtalk_rate->GetYaxis()->SetTitle("Number of events / bin");
+  xtalk_rate->GetXaxis()->SetTitle("Crosstalk fraction [%]");
+  xtalk_rate->GetYaxis()->SetTitle("Counts");
   xtalk_rate->GetXaxis()->SetLabelSize(0.05);
   xtalk_rate->GetXaxis()->SetTitleSize(0.05);
   xtalk_rate->GetYaxis()->SetLabelSize(0.05);
@@ -549,12 +550,12 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   // Estimate the noise level in order to subtract it
   std::cout << "Start to estimate noise level" << std::endl;
   // First loop over all events
-  for(int n = 0; n < n_event; n++){
+  //for(int n = 0; n < n_event; n++){
 
-    data->GetMppc(n,swap,newswap);
+  //  data->GetMppc(n,swap,newswap);
 
-    ADC_temp.clear();
-    for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
+  //  ADC_temp.clear();
+  //  for(int i = 0; i < fChanNum; i++) ADC_temp.push_back(data->ADC(chan_order[i]-1));
 
     // Method 1: use an overall noise level
     /*pass_tag = EventCosmicCut(ADC_temp,ADC_cut);
@@ -596,7 +597,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
 
     // Method 2: estimate noise level per channel
     // Loop over each channel, if the channel satisfies requirement, then fill the noise histogram
-    if(fChanMapChoice==1){
+    /*if(fChanMapChoice==1){
       for(int i = 0; i < fChanNum; i++){
    
         // Channel ADC smaller than cut
@@ -627,11 +628,11 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
         noise_ly->Fill(ADC_temp[i]);
 
       } // End of channel loop
-    }
+    }*/
     
     // Method 3: estimate noise level per channel, but in a safer way
     // This applies to the new board data, because there is trigger to select the events
-    else if(fChanMapChoice==2){    
+    /*else if(fChanMapChoice==2){    
       // First match cubes at each layer, do not apply any cut
       cube_array = Get3DMatchedCubes(ADC_temp,ADC_cut);
       if(cube_array.size()!=3) continue;
@@ -669,9 +670,9 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
           }
         }
       }
-    }
+    }*/
 
-  }
+  //}
 
   // Fit the noise value distribution with a Gaussian function
   /*double mean_temp = noise_esti->GetMean();
@@ -687,7 +688,7 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //double noise_fitupp[fChanNum] = {154,131,135,129,122,125,143,91,156,136,140,150,125,131,153,140,140,146};
 
   double mean_temp, rms_temp;
-  double noise_mean[fChanNum] = {143.804, 129.154, 127.567, 118.763, 120.529, 129.701, 136.204, 98.8112, 121.433, 126.936, 135.251, 135.76, 114.491, 125.016, 142.332, 131.114, 133.201, 130.309};
+  double noise_mean[fChanNum] = {135.189, 122.323, 119.483, 108.554, 109.963, 120.017, 127.056, 167.308, 113.182, 117.494, 125.663, 126.852, 103.746, 114.148, 131.441, 121.886, 123.59, 121.814};
   double noise_rms[fChanNum];
   TF1 *fit_func[fChanNum];
   /*for(int i = 0; i < fChanNum; i++){
@@ -1087,12 +1088,13 @@ void CrosstalkAnalysis(int file_option = 1, double ADC_cut = fADCCut){
   //xtalk_rate_pe->Draw("E P0");
   xtalk_rate_pe->Draw("hist");
 
-  name.Form("Crosstalk fraction:");
-  pl_name->DrawTextNDC(0.5,0.68,name);
-  name.Form("Mean = %f",xtalk_rate_pe->GetMean());
-  pl_mean->DrawTextNDC(0.5,0.61,name);
+  //name.Form("Crosstalk fraction:");
+  //pl_name->DrawTextNDC(0.5,0.68,name);
+  //name.Form("Mean = %f",xtalk_rate_pe->GetMean());
+  //pl_mean->DrawTextNDC(0.5,0.61,name);
   gPad->SetGridx();
   gPad->SetGridy();
+  gPad->SetTicks(1,1);
   if(file_option==1 || file_option==4) gPad->SetLogy();
   c1ex->Update();
 
@@ -1866,7 +1868,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   Event_show->SetTitle("");
 
   double size = 3 * fCubeSize;
-  TH3D *bkg_temp = new TH3D("bkg_temp","bkg_temp",100,0,size,100,0,size,100,0,size);
+  TH3D *bkg_temp = new TH3D("bkg_temp","bkg_temp",100,0,size/10,100,0,size/10,100,0,size/10);
   bkg_temp->GetXaxis()->SetTitle("X axis cube");
   bkg_temp->GetYaxis()->SetTitle("Y axis cube");
   bkg_temp->GetZaxis()->SetTitle("Z axis cube");
@@ -1910,6 +1912,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
     // Randomly choose an event
     rand_event = rand->Rndm() * n_event; 
+    rand_event = 136058;
     //std::cout << "Event number: " << rand_event << endl;
     data->GetMppc(rand_event,swap,newswap);
 
@@ -1967,9 +1970,24 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   trk_graph->SetLineWidth(2);
   trk_graph->SetLineColor(kBlue);
 
+  // Copy 3D graph to a new one but re-scaled
+  std::cout << "Event = " << rand_event << endl;
+
+  TGraph2D *new_trkgraph = new TGraph2D();
+  //double x,y,z;
+  //for(int i = 0; i < 3; i++){
+  //  trk_graph->GetPoint(i,x,y,z);
+  //  new_trkgraph->SetPoint(i,x/10.,y/10.,z/10.);
+  //}
+  new_trkgraph->SetPoint(0,0.5,1.5,0.5);
+  new_trkgraph->SetPoint(1,1.5,1.5,1.5);
+  new_trkgraph->SetPoint(2,2.5,1.5,2.5);
+  new_trkgraph->SetLineWidth(3);
+  new_trkgraph->SetLineColor(kBlue);
+
   SetHistoSettings(Event_show);
   SetHistoSettings(bkg_temp);
-  SetHistoSettings(trk_graph);
+  SetHistoSettings(new_trkgraph);
 
   // Plot the histograms
   gStyle->SetOptStat(0);
@@ -2007,16 +2025,14 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   Event_show->Draw("BOX2");
   c4->cd(4);
   bkg_temp->Draw();
-  trk_graph->Draw("LINE SAME");
+  new_trkgraph->Draw("LINE SAME");
   c4->Update();
 
-  TCanvas *c5 = new TCanvas("event_3d","event_3d",1200,600);
-  c5->Divide(2,1);
-  c5->cd(1);
+  TCanvas *c5 = new TCanvas("event_3d","event_3d",700,600);
+  c5->SetLeftMargin(0.15);
+  c5->cd();
   Event_show->Draw("BOX2");
-  c5->cd(2);
-  bkg_temp->Draw();
-  trk_graph->Draw("LINE SAME");
+  new_trkgraph->Draw("LINE SAME");
   c5->Update();
 
   TString prefix = "../../../plots/scintillator_cube/";
@@ -2050,7 +2066,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   Event_show->Write();
   MPPC2D_xz->Write();
   MPPC2D_yz->Write();
-  trk_graph->Write();
+  new_trkgraph->Write();
 
   fout->Close();
 
@@ -2170,13 +2186,13 @@ void SetHistoSettings(T *h){
  
   h->GetXaxis()->SetLabelSize(0.04);
   h->GetXaxis()->SetTitleSize(0.04);
-  h->GetXaxis()->SetTitleOffset(1.4);
+  h->GetXaxis()->SetTitleOffset(1.3);
   h->GetYaxis()->SetLabelSize(0.04);
   h->GetYaxis()->SetTitleSize(0.04);
-  h->GetYaxis()->SetTitleOffset(1.4);
+  h->GetYaxis()->SetTitleOffset(1.3);
   h->GetZaxis()->SetLabelSize(0.04);
   h->GetZaxis()->SetTitleSize(0.04);
-  h->GetZaxis()->SetTitleOffset(1.4);
+  h->GetZaxis()->SetTitleOffset(1.3);
 
 }
 
