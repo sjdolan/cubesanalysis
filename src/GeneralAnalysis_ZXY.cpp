@@ -1912,7 +1912,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
 
     // Randomly choose an event
     rand_event = rand->Rndm() * n_event; 
-    rand_event = 136058;
+    rand_event = 303406;
     //std::cout << "Event number: " << rand_event << endl;
     data->GetMppc(rand_event,swap,newswap);
 
@@ -1929,7 +1929,7 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
       // 3D plot show the track (straight line)
       std::tie(track_info,chan_path,trk_graph) = Get3DTrackFit(cube_array);
       
-      if(track_info[1]<40) out_tag = false;
+      if(track_info[1]>10) out_tag = false;
       else out_tag = true;
 
     }
@@ -1979,9 +1979,9 @@ void DrawEvent3D(int file_option = 1, int seed = 0, double ADC_cut = fADCCut){
   //  trk_graph->GetPoint(i,x,y,z);
   //  new_trkgraph->SetPoint(i,x/10.,y/10.,z/10.);
   //}
-  new_trkgraph->SetPoint(0,0.5,1.5,0.5);
-  new_trkgraph->SetPoint(1,1.5,1.5,1.5);
-  new_trkgraph->SetPoint(2,2.5,1.5,2.5);
+  new_trkgraph->SetPoint(0,0.5,1.5,0.);
+  new_trkgraph->SetPoint(1,0.5,1.5,1.5);
+  new_trkgraph->SetPoint(2,0.5,1.5,3);
   new_trkgraph->SetLineWidth(3);
   new_trkgraph->SetLineColor(kBlue);
 

@@ -35,15 +35,22 @@ TVector3 GetTrigChanPos(int,int);
 int ReturnIndex(int);
 
 // Global parameters
-std::string fin_name = "../../inputs/3dprinted_cubes/3DPrintCubes_NewBoard.root";
+std::string fin_name = "../../inputs/3dprinted_cubes/3DPrintCubes_NewBoard_old.root";
+//std::string fin_name = "../../inputs/3dprinted_cubes/3DMatrix_th280DAC_OR32_18June2021.root";
 
 const int fChanNum = 9; // 3*3 matrix
 int fChanOrder[fChanNum] = {15,17,19,21,23,25,27,29,31}; // 3*3 matrix channel number
+
+double fChanGain[fChanNum] = {35.6556,36.9649,32.6565,30.7933,38.5202,36.4342,36.7935,36.7,37.0}; 
+//double fChanGain[fChanNum] = {35.6556,36.9649,32.6565,30.7933,38.5202,36.4342,36.7935,35.4026,35.4026};
 
 double f13TopChanOrder[3] = {8,14,12}; // Channel number for trigger cubes
 double f13DownChanOrder[3] = {7,13,11};
 double f24TopChanOrder[3] = {6,2,4};
 double f24DownChanOrder[3] = {5,1,3};
+
+const int fTriChanNum = 12;
+int fTriChanOrder[fTriChanNum] = {8,14,12,7,13,11,6,2,4,5,1,3};
 
 const double fADCCut = 500;
 
@@ -68,6 +75,7 @@ void CrosstalkAnalysis(){
   TH1D *xtalk_esti[fChanNum];
   TH1D *xtalk_adc[fChanNum];
   TH1D *track_adc[fChanNum];
+  TH1D *track_pe[fChanNum];
   
   for(int i = 0; i < fChanNum; i++){
     name.Form("channel%i_noise",fChanOrder[i]);
@@ -121,6 +129,19 @@ void CrosstalkAnalysis(){
     track_adc[i]->SetTitle(name);
     track_adc[i]->SetLineWidth(2);
     track_adc[i]->SetLineColor(kBlue);
+    
+    name.Form("channel%i_trackpe",fChanOrder[i]);
+    track_pe[i] = new TH1D(name,name,100,0,120);
+    track_pe[i]->GetXaxis()->SetTitle("Track channel light yield / p.e.");
+    track_pe[i]->GetYaxis()->SetTitle("Number of events / bin");
+    track_pe[i]->GetXaxis()->SetLabelSize(0.04);
+    track_pe[i]->GetXaxis()->SetTitleSize(0.04);
+    track_pe[i]->GetYaxis()->SetLabelSize(0.04);
+    track_pe[i]->GetYaxis()->SetTitleSize(0.04);
+    track_pe[i]->GetYaxis()->SetTitleOffset(1.4);
+    track_pe[i]->SetTitle(name);
+    track_pe[i]->SetLineWidth(2);
+    track_pe[i]->SetLineColor(kBlue);    
   }
  
   TH1D *xtalk_all = new TH1D("xtalk_rate","xtalk_rate",30,0,3);
@@ -142,6 +163,16 @@ void CrosstalkAnalysis(){
   xtalk_allex->GetYaxis()->SetTitleSize(0.05);
   xtalk_allex->GetYaxis()->SetTitleOffset(1.4);
   xtalk_allex->SetTitle("");
+
+  TH1D *trkpe_all = new TH1D("trkpe_all","trkpe_all",100,0,120);
+  trkpe_all->GetXaxis()->SetTitle("Track channel light yield / p.e.");
+  trkpe_all->GetYaxis()->SetTitle("Number of events / bin");
+  trkpe_all->GetXaxis()->SetLabelSize(0.05);
+  trkpe_all->GetXaxis()->SetTitleSize(0.05);
+  trkpe_all->GetYaxis()->SetLabelSize(0.05);
+  trkpe_all->GetYaxis()->SetTitleSize(0.05);
+  trkpe_all->GetYaxis()->SetTitleOffset(1.4);
+  trkpe_all->SetTitle("");
   
   // Estimate noise level
   std::cout << "Start to estimate noise level" << std::endl;
@@ -196,19 +227,25 @@ void CrosstalkAnalysis(){
     if(pass_tag!=true) continue;
 
     double cen_adc = data->ADC(fChanOrder[trk_index]-1);
+    double cen_gain = fChanGain[trk_index];
     if(cen_adc<400) continue;
     track_adc[trk_index]->Fill(cen_adc);
+    double cen_temp = (cen_adc - noise_mean[trk_index]) / cen_gain;
+    track_pe[trk_index]->Fill(cen_temp);
+    trkpe_all->Fill(cen_temp);
     
     TLorentzVector near_chan = GetNearbyChannel(fChanOrder[trk_index]);
     
     double xtalk_rate;
     double near_adc;
+    double near_gain;
     int near_index;
     if(near_chan.X()!=-1){
       near_index = ReturnIndex(near_chan.X());
       near_adc = data->ADC(near_chan.X()-1);
+      near_gain = fChanGain[near_index];
       xtalk_adc[near_index]->Fill(near_adc);
-      xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_rate = ((near_adc - noise_mean[near_index]) / near_gain) / ((cen_adc - noise_mean[trk_index]) / cen_gain);
       xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
@@ -217,8 +254,9 @@ void CrosstalkAnalysis(){
     if(near_chan.Y()!=-1){
       near_index = ReturnIndex(near_chan.Y());
       near_adc = data->ADC(near_chan.Y()-1);
+      near_gain = fChanGain[near_index];
       xtalk_adc[near_index]->Fill(near_adc);
-      xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_rate = ((near_adc - noise_mean[near_index]) / near_gain) / ((cen_adc - noise_mean[trk_index]) / cen_gain);
       xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
@@ -227,8 +265,9 @@ void CrosstalkAnalysis(){
     if(near_chan.Z()!=-1){
       near_index = ReturnIndex(near_chan.Z());
       near_adc = data->ADC(near_chan.Z()-1);
+      near_gain = fChanGain[near_index];
       xtalk_adc[near_index]->Fill(near_adc);
-      xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_rate = ((near_adc - noise_mean[near_index]) / near_gain) / ((cen_adc - noise_mean[trk_index]) / cen_gain);
       xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
@@ -237,8 +276,9 @@ void CrosstalkAnalysis(){
     if(near_chan.T()!=-1){
       near_index = ReturnIndex(near_chan.T());
       near_adc = data->ADC(near_chan.T()-1);
+      near_gain = fChanGain[near_index];
       xtalk_adc[near_index]->Fill(near_adc);
-      xtalk_rate = (near_adc - noise_mean[near_index]) / (cen_adc - noise_mean[trk_index]);
+      xtalk_rate = ((near_adc - noise_mean[near_index]) / near_gain) / ((cen_adc - noise_mean[trk_index]) / cen_gain);
       xtalk_allex->Fill(xtalk_rate);
       if(xtalk_rate<0) xtalk_rate = 0;
       xtalk_esti[near_index]->Fill(xtalk_rate);
@@ -246,6 +286,39 @@ void CrosstalkAnalysis(){
     }
 
   }
+ 
+  // Compute mean light yield per channel
+  double ly_mean[fChanNum];
+  double ly_overall = trkpe_all->GetMean();
+  for(int i = 0; i < fChanNum; i++) ly_mean[i] = track_pe[i]->GetMean();
+
+  TH1D *chanly_ave = new TH1D("chanly_ave","chanly_ave",fChanNum,0,9);
+  chanly_ave->GetXaxis()->SetTitle("Channel");
+  chanly_ave->GetYaxis()->SetTitle("Average light yield / p.e.");
+  chanly_ave->GetXaxis()->SetLabelSize(0.05);
+  chanly_ave->GetXaxis()->SetTitleSize(0.05);
+  chanly_ave->GetYaxis()->SetLabelSize(0.05);
+  chanly_ave->GetYaxis()->SetTitleSize(0.05);
+  chanly_ave->GetYaxis()->SetTitleOffset(1.4);
+  chanly_ave->SetTitle("");
+
+  TGraph *ly_general = new TGraph(fChanNum);
+  
+  TString label;
+  for(int i = 0; i < fChanNum; i++){
+    label.Form("%i",fChanOrder[i]);
+    chanly_ave->GetXaxis()->SetBinLabel(i+1,label);
+    chanly_ave->SetBinContent(i+1,ly_mean[i]);
+    ly_general->SetPoint(i,i,ly_overall);
+  }
+  ly_general->SetPoint(fChanNum,9,ly_overall);
+  
+  chanly_ave->SetLineColor(kBlue);
+  chanly_ave->SetLineWidth(2);
+  chanly_ave->GetYaxis()->SetRangeUser(0,80);
+  ly_general->SetLineColor(kRed);
+  ly_general->SetLineWidth(2);
+  ly_general->SetLineStyle(2);
   
   TText *pl_name = new TText();
   pl_name->SetTextSize(0.04);
@@ -302,10 +375,7 @@ void CrosstalkAnalysis(){
   c5->SetLeftMargin(0.15);
   c5->cd();
   xtalk_all->SetLineWidth(2);
-  xtalk_all->SetLineColor(kBlue);
-  //xtalk_all->SetMarkerColor(kBlue);
-  //xtalk_all->SetMarkerStyle(20);
-  //xtalk_all->Draw("P E0");
+  xtalk_all->SetLineColor(kRed);
   xtalk_all->Draw("hist");
 
   name.Form("Crosstalk fraction:");
@@ -315,16 +385,14 @@ void CrosstalkAnalysis(){
   gPad->SetGridx();
   gPad->SetGridy();
   gPad->SetLogy();
+  gPad->SetTicks(1,1);
   c5->Update();
 
   TCanvas *c6 = new TCanvas("xtalk_allex","xtalk_allex",700,600);
   c6->SetLeftMargin(0.15);
   c6->cd();
   xtalk_allex->SetLineWidth(2);
-  xtalk_allex->SetLineColor(kBlue);
-  //xtalk_allex->SetMarkerColor(kBlue);
-  //xtalk_allex->SetMarkerStyle(20);
-  //xtalk_allex->Draw("P E0");
+  xtalk_allex->SetLineColor(kRed);
   xtalk_allex->Draw("hist");
 
   name.Form("Crosstalk fraction:");
@@ -334,7 +402,45 @@ void CrosstalkAnalysis(){
   gPad->SetGridx();
   gPad->SetGridy();
   gPad->SetLogy();
+  gPad->SetTicks(1,1);
   c6->Update();
+ 
+  TCanvas *c7 = new TCanvas("track_pe","track_pe",1200,1200);
+  c7->Divide(3,3);
+  for(int i = 0; i < 9; i++){
+    c7->cd(i+1);
+    track_pe[i]->Draw("hist");
+    name.Form("Overall mean = %f p.e.",ly_mean[i]);
+    pl_mean->DrawTextNDC(st_left,st_top,name);
+  }
+  c7->Update();
+  
+  TCanvas *c8 = new TCanvas("trkpe_all","trkpe_all",700,600);
+  c8->SetLeftMargin(0.15);
+  c8->cd();
+  trkpe_all->SetLineWidth(2);
+  trkpe_all->SetLineColor(kRed);
+  trkpe_all->Draw("hist");
+
+  //name.Form("Crosstalk fraction:");
+  //pl_name->DrawTextNDC(0.5,0.68,name);
+  name.Form("Overall mean = %f p.e.",ly_overall);
+  pl_mean->DrawTextNDC(0.5,0.61,name);
+  gPad->SetGridx();
+  gPad->SetGridy();
+  //gPad->SetLogy();
+  gPad->SetTicks(1,1);
+  c8->Update();  
+  
+  TCanvas *c9 = new TCanvas("chanly_comp","chanly_comp",700,600);
+  c9->SetLeftMargin(0.15);
+  c9->cd();
+  chanly_ave->Draw("hist");
+  ly_general->Draw("l");
+  gPad->SetGridx();
+  gPad->SetGridy();
+  gPad->SetTicks(1,1);
+  c9->Update();
   
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = "3dprintcubes_newboard/";;
@@ -364,6 +470,21 @@ void CrosstalkAnalysis(){
   suffix = prefix + type + "xtalk_allex.pdf";
   c6->SaveAs(suffix);
 
+  suffix = prefix + type + "track_pe.png";
+  c7->SaveAs(suffix);
+
+  suffix = prefix + type + "trkpe_all.png";
+  c8->SaveAs(suffix);
+
+  suffix = prefix + type + "trkpe_all.pdf";
+  c8->SaveAs(suffix);
+
+  suffix = prefix + type + "chanly_comp.png";
+  c9->SaveAs(suffix);
+
+  suffix = prefix + type + "chanly_comp.pdf";
+  c9->SaveAs(suffix);
+
   TString fout_name = "../../results/CrosstalkAnalysis_3DPrintCube_NewBoard.root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
@@ -375,16 +496,23 @@ void CrosstalkAnalysis(){
   c4->Write();
   c5->Write();
   c6->Write();
+  c7->Write();
+  c8->Write();
+  c9->Write();
   
   for(int i = 0; i < fChanNum; i++){
     noise_esti[i]->Write();
     xtalk_adc[i]->Write();
     track_adc[i]->Write();
     xtalk_esti[i]->Write();
+    track_pe[i]->Write();
   }
  
   xtalk_all->Write();
   xtalk_allex->Write();
+  trkpe_all->Write();
+  chanly_ave->Write();
+  ly_general->Write();
 
   fout->Close();  
 
@@ -404,6 +532,7 @@ void DrawMPPCChanADC(){
   
   TString name;
   TH1D *MPPC_ly[fChanNum];
+  TH1D *MPPCtri_ly[fTriChanNum];
   
   for(int i = 0; i < fChanNum; i++){
     name.Form("MPPC_ly_chan%i",fChanOrder[i]);
@@ -415,11 +544,23 @@ void DrawMPPCChanADC(){
     MPPC_ly[i]->SetLineColor(kBlue);
   }
 
+  for(int i = 0; i < fTriChanNum; i++){
+    name.Form("MPPC_ly_chan%i",fTriChanOrder[i]);
+    MPPCtri_ly[i] = new TH1D(name,name,80,0,4500);
+    MPPCtri_ly[i]->GetXaxis()->SetTitle("ADC");
+    MPPCtri_ly[i]->GetYaxis()->SetTitle("Number of events / bin");
+    MPPCtri_ly[i]->SetTitle(name);
+    MPPCtri_ly[i]->SetLineWidth(2);
+    MPPCtri_ly[i]->SetLineColor(kBlue);
+  }
+
   for(int n = 0; n < n_event; n++){
 
     data->GetMppc(n,swap,newswap);
     
     for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Fill(data->ADC(fChanOrder[i]-1)); 
+    
+    for(int i = 0; i < fTriChanNum; i++) MPPCtri_ly[i]->Fill(data->ADC(fTriChanOrder[i]-1));
 
   }
 
@@ -434,6 +575,24 @@ void DrawMPPCChanADC(){
   }
   c1->Update();
 
+  TCanvas *c2 = new TCanvas("MPPC2D_13","MPPC2D_13",1200,800);
+  c2->Divide(3,2);
+  for(int i = 0; i < 6; i++){
+    c2->cd(i+1);
+    MPPCtri_ly[i]->Draw();
+    gPad->SetLogy();
+  }
+  c2->Update();
+
+  TCanvas *c3 = new TCanvas("MPPC2D_24","MPPC2D_24",1200,800);
+  c3->Divide(3,2);
+  for(int i = 0; i < 6; i++){
+    c3->cd(i+1);
+    MPPCtri_ly[i+6]->Draw();
+    gPad->SetLogy();
+  }
+  c3->Update();
+
   TString prefix = "../../../plots/scintillator_cube/";
   TString type = "3dprintcubes_newboard/";;
   TString suffix;
@@ -441,14 +600,24 @@ void DrawMPPCChanADC(){
   suffix = prefix + type + "MPPC2D.png";
   c1->SaveAs(suffix);
 
+  suffix = prefix + type + "MPPC2D_13.png";
+  c2->SaveAs(suffix);
+  
+  suffix = prefix + type + "MPPC2D_24.png";
+  c3->SaveAs(suffix);
+
   TString fout_name = "../../results/MPPCLightYield_3DPrintCube_NewBoard.root";
 
   TFile *fout = new TFile(fout_name.Data(),"recreate");
   fout->cd();
   
   for(int i = 0; i < fChanNum; i++) MPPC_ly[i]->Write();
+  
+  for(int i = 0; i < fTriChanNum; i++) MPPCtri_ly[i]->Write();
  
   c1->Write();
+  c2->Write();
+  c3->Write();
 
   fout->Close();
 
