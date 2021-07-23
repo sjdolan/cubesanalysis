@@ -131,7 +131,7 @@ void CrosstalkAnalysis(){
     track_adc[i]->SetLineColor(kBlue);
     
     name.Form("channel%i_trackpe",fChanOrder[i]);
-    track_pe[i] = new TH1D(name,name,100,0,120);
+    track_pe[i] = new TH1D(name,name,50,0,120);
     track_pe[i]->GetXaxis()->SetTitle("Track channel light yield / p.e.");
     track_pe[i]->GetYaxis()->SetTitle("Number of events / bin");
     track_pe[i]->GetXaxis()->SetLabelSize(0.04);
@@ -164,7 +164,7 @@ void CrosstalkAnalysis(){
   xtalk_allex->GetYaxis()->SetTitleOffset(1.4);
   xtalk_allex->SetTitle("");
 
-  TH1D *trkpe_all = new TH1D("trkpe_all","trkpe_all",100,0,120);
+  TH1D *trkpe_all = new TH1D("trkpe_all","trkpe_all",50,0,120);
   trkpe_all->GetXaxis()->SetTitle("Track channel light yield / p.e.");
   trkpe_all->GetYaxis()->SetTitle("Number of events / bin");
   trkpe_all->GetXaxis()->SetLabelSize(0.05);
